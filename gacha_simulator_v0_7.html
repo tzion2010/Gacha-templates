@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gacha Simulator v0.7</title>
+<style>
+  :root{
+    --bg1:#0e1220; --bg2:#18202f; --text:#eef2f7; --muted:#9aa4b2;
+    --accent:#6aa1ff; --warn:#ffbd59; --danger:#ff6a6a; --ok:#7ef0c1;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,'Helvetica Neue',Arial;
+    background:linear-gradient(135deg,var(--bg1),var(--bg2)); min-height:100vh; display:flex; flex-direction:column;}
+  header{padding:14px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between;
+    background:rgba(0,0,0,0.25); backdrop-filter: blur(6px); position:sticky; top:0; z-index:50;
+    border-bottom:1px solid rgba(255,255,255,0.07);}
+  .title{font-weight:800; letter-spacing:.3px}
+  .currencies{display:flex; gap:12px; flex-wrap:wrap; align-items:center}
+  .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.08); font-weight:600}
+  .pill .btn{margin-left:6px; padding:2px 8px; border-radius:8px; border:none; cursor:pointer; 
+    background:rgba(255,255,255,0.1); color:var(--text)}
+  nav.tabs{display:flex; gap:8px; overflow:auto; padding:10px 12px; scrollbar-width:thin;
+    border-bottom:1px solid rgba(255,255,255,0.07); background:rgba(0,0,0,0.15)}
+  .tab{padding:10px 14px; white-space:nowrap; cursor:pointer; border-radius:10px; 
+    background:rgba(255,255,255,0.05); border:1px solid transparent; user-select:none}
+  .tab.active{background:rgba(106,161,255,0.15); border-color:rgba(106,161,255,0.35)}
+  main{padding:16px; max-width:1240px; width:100%; margin:0 auto; display:grid; gap:16px}
+  .grid{display:grid; gap:16px}
+  .card{background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.06); border-radius:14px; padding:16px;}
+  .row{display:flex; gap:14px; flex-wrap:wrap}
+  .col{flex:1 1 280px}
+  label{display:block; font-size:.9rem; color:var(--muted); margin:6px 0 6px}
+  input[type="text"], input[type="number"], textarea, select, input[type="color"]{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.12);
+    background:rgba(255,255,255,0.04); color:var(--text); outline:none;
+  }
+  textarea{min-height:90px; resize:vertical}
+  button.primary{background:linear-gradient(135deg,var(--accent),#8fb7ff); color:#081120; border:none; padding:10px 14px; border-radius:10px; font-weight:700; cursor:pointer}
+  button.ghost{background:transparent; border:1px solid rgba(255,255,255,0.18); color:var(--text); padding:10px 14px; border-radius:10px; cursor:pointer}
+  button.warn{background:var(--warn); color:#1a1307; border:none; padding:10px 14px; border-radius:10px; cursor:pointer}
+  button.danger{background:var(--danger); color:#18090a; border:none; padding:10px 14px; border-radius:10px; cursor:pointer}
+  .summon-area{display:grid; grid-template-columns: 1.1fr .9fr; gap:16px}
+  .summoned{display:grid; place-items:center; min-height:360px; border-radius:12px;
+    background:radial-gradient(ellipse at center, rgba(126,240,193,0.08), rgba(255,255,255,0.02));
+    border:1px dashed rgba(255,255,255,0.15); padding:12px; text-align:center;}
+  .rarity-frame{ position:relative; padding:3px; border-radius:14px; background:linear-gradient(135deg,#777,#aaa); }
+  .rarity-inner{ background:rgba(0,0,0,0.28); border-radius:12px; padding:0; }
+  .rarity-glow{ box-shadow:0 0 18px rgba(255,255,255,0.12); }
+  .summoned img{max-width:100%; max-height:380px; border-radius:12px; display:block; width:100%}
+  .stats{display:grid; grid-template-columns:repeat(6,1fr); gap:8px}
+  .tiny{font-size:.85rem; color:var(--muted)}
+  .list{display:grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap:12px}
+  .item{background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; overflow:hidden; display:flex; flex-direction:column}
+  .item .frame{padding:3px; border-radius:12px; background:linear-gradient(135deg,#777,#aaa)}
+  .item img{width:100%; aspect-ratio:16/10; object-fit:cover; border-radius:10px; cursor:pointer}
+  .item .body{padding:10px 12px; display:flex; flex-direction:column; gap:8px}
+  .tag{display:inline-block; padding:4px 8px; border-radius:999px; font-size:.75rem; background:rgba(255,255,255,0.08); margin:0 6px 6px 0}
+  .flex-between{display:flex; justify-content:space-between; align-items:center; gap:10px}
+  .hidden{display:none !important}
+  .muted{color:var(--muted)}
+  .divider{height:1px; background:rgba(255,255,255,0.08); margin:10px 0}
+  .help{font-size:.85rem; color:var(--muted)}
+  .kvs{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px}
+  .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+  .badge{padding:2px 8px; border-radius:999px; background:rgba(255,255,255,0.08); font-size:.75rem}
+  #toast{position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.15); color:var(--text); padding:10px 14px; border-radius:10px; display:none; z-index:120}
+  /* Lightbox */
+  #lightbox{position:fixed; inset:0; background:rgba(0,0,0,0.7); display:none; align-items:center; justify-content:center; z-index:100}
+  #lightbox .content{max-width:1000px; width:96%; background:rgba(0,0,0,0.5); border:1px solid rgba(255,255,255,0.1); border-radius:16px; overflow:hidden}
+  #lightbox .body{display:grid; grid-template-columns: 1.2fr .8fr; gap:0}
+  #lightbox .imgwrap{padding:16px}
+  #lightbox .imgwrap .rarity-frame{padding:4px; border-radius:16px}
+  #lightbox .imgwrap img{width:100%; max-height:70vh; object-fit:contain; border-radius:14px}
+  #lightbox .meta{padding:16px; border-left:1px solid rgba(255,255,255,0.08)}
+</style>
+</head>
+<body>
+  <header>
+    <div class="title">🎰 Gacha Simulator — <span class="muted">v0.7</span></div>
+    <div class="currencies">
+      <div class="pill">🪙 Coins: <span id="coins">0</span><button class="btn" id="addCoins">+100</button></div>
+      <div class="pill">💎 Gems: <span id="gems">0</span><button class="btn" id="addGems">+1</button></div>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <div class="tab active" data-tab="summon">Summon</div>
+    <div class="tab" data-tab="database">Database</div>
+    <div class="tab" data-tab="inventory">Inventory</div>
+    <div class="tab" data-tab="shop">Shop</div>
+    <div class="tab" data-tab="editor">Editor</div>
+  </nav>
+
+  <main>
+    <!-- SUMMON -->
+    <section id="summon" class="grid">
+      <div class="summon-area">
+        <div class="card summoned" id="summonedView">
+          <div class="muted">✨ Ready to summon. Costs <span id="costCoins"></span> coins or <span id="costGems"></span> gem.</div>
+        </div>
+        <div class="card">
+          <h3>Summon Controls</h3>
+          <div class="divider"></div>
+          <div class="row">
+            <button class="primary" id="summonCoinsBtn">Summon (Coins)</button>
+            <button class="primary" id="summonGemsBtn">Summon (Gem)</button>
+            <button class="ghost" id="freeSummonBtn">Free Summon (Test)</button>
+          </div>
+          <p class="help">Weights, costs, rewards, duplicate bonuses, leveling & ascension are editable in <b>Editor → Config</b>.</p>
+          <div class="divider"></div>
+          <h4>Rarity Weights (preview)</h4>
+          <div id="weightsPreview" class="kvs tiny"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DATABASE -->
+    <section id="database" class="grid hidden">
+      <div class="card">
+        <div class="row">
+          <div class="col">
+            <label>Search (name / description / world)</label>
+            <input type="text" id="searchInput" placeholder="Search...">
+          </div>
+          <div class="col">
+            <label>Filter tags (comma-separated)</label>
+            <input type="text" id="tagsFilter" placeholder="e.g. healer, aerial, fire">
+          </div>
+          <div class="col">
+            <label>Filter by Tier</label>
+            <select id="tierFilter"><option value="">Any</option></select>
+          </div>
+          <div class="col">
+            <label>Filter by World</label>
+            <input type="text" id="worldFilter" placeholder="World name">
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="flex-between">
+          <h3>Characters</h3>
+          <div class="row">
+            <button class="ghost" id="exportBtn">Export JSON</button>
+            <label class="ghost" style="display:inline-flex; align-items:center; gap:8px; cursor:pointer;">
+              <input type="file" id="importFile" accept=".json" style="display:none">
+              <span class="mono">Import JSON</span>
+            </label>
+          </div>
+        </div>
+        <div id="dbList" class="list"></div>
+      </div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section id="inventory" class="grid hidden">
+      <div class="card">
+        <div class="row">
+          <div class="col">
+            <label>Search by name</label>
+            <input type="text" id="invSearch" placeholder="Search inventory...">
+          </div>
+          <div class="col">
+            <label>Filter by Tier</label>
+            <select id="invTier"><option value="">Any</option></select>
+          </div>
+          <div class="col">
+            <label>Filter by World</label>
+            <input type="text" id="invWorld" placeholder="World name">
+          </div>
+          <div class="col">
+            <label>Sort</label>
+            <select id="invSort">
+              <option value="name">Name A→Z</option>
+              <option value="tier">Tier (rarity)</option>
+              <option value="count">Duplicate Count</option>
+              <option value="recent">Most Recent</option>
+              <option value="level">Level</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" id="invExport">Export Inventory</button>
+          <button class="warn" id="invClear">Clear Inventory</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Your Inventory</h3>
+        <div id="invList" class="list"></div>
+      </div>
+    </section>
+
+    <!-- SHOP -->
+    <section id="shop" class="grid hidden">
+      <div class="card">
+        <h3>Shop</h3>
+        <div class="divider"></div>
+        <div class="row">
+          <div class="col">
+            <label>Buy Pack</label>
+            <select id="shopPack"></select>
+            <div class="tiny" id="shopPackDesc"></div>
+            <div class="row" style="margin-top:8px">
+              <button class="primary" id="buyPack1">Buy 1 Pack</button>
+              <button class="primary" id="buyPack10">Buy x10</button>
+            </div>
+          </div>
+          <div class="col">
+            <label>Exchange</label>
+            <div class="row">
+              <button class="ghost" id="buyCoinsWithGems">+1000 Coins (cost 1 Gem)</button>
+              <button class="ghost" id="buyGemsWithCoins">+1 Gem (cost 1000 Coins)</button>
+            </div>
+            <p class="help">Exchange rates editable in Config.</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Sell Characters</h3>
+        <p class="help">Sell from inventory for coins/gems based on tier. Values editable.</p>
+        <div id="sellList" class="list"></div>
+      </div>
+    </section>
+
+    <!-- EDITOR -->
+    <section id="editor" class="grid hidden">
+      <div class="card">
+        <h3>Character Editor</h3>
+        <div class="divider"></div>
+        <form id="charForm">
+          <input type="hidden" id="charId">
+          <div class="row">
+            <div class="col">
+              <label>Name</label>
+              <input type="text" id="name" required>
+            </div>
+            <div class="col">
+              <label>World</label>
+              <input type="text" id="world" placeholder="e.g., Aetherium">
+            </div>
+            <div class="col">
+              <label>Image URL</label>
+              <input type="text" id="imageUrl" placeholder="https://...">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label>Tier</label>
+              <select id="tier" required></select>
+            </div>
+            <div class="col">
+              <label>Grade</label>
+              <input type="text" id="grade" placeholder="F, E, D, ...">
+            </div>
+            <div class="col">
+              <label>Rarity Name</label>
+              <input type="text" id="rarityName" placeholder="Common, Legendary, ...">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label>Core Concept</label>
+              <input type="text" id="coreConcept" placeholder="One-liner concept">
+            </div>
+            <div class="col">
+              <label>Tags (comma-separated)</label>
+              <input type="text" id="tags" placeholder="fire, healer, aerial">
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label>Description</label>
+              <textarea id="description" placeholder="Character backstory / abilities"></textarea>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label>D&D Stats (1–30)</label>
+              <div class="stats">
+                <div><input type="number" id="str" min="1" max="30" value="10"><div class="tiny">STR</div></div>
+                <div><input type="number" id="dex" min="1" max="30" value="10"><div class="tiny">DEX</div></div>
+                <div><input type="number" id="con" min="1" max="30" value="10"><div class="tiny">CON</div></div>
+                <div><input type="number" id="int" min="1" max="30" value="10"><div class="tiny">INT</div></div>
+                <div><input type="number" id="wis" min="1" max="30" value="10"><div class="tiny">WIS</div></div>
+                <div><input type="number" id="cha" min="1" max="30" value="10"><div class="tiny">CHA</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="row">
+            <button class="primary" type="submit">Save Character</button>
+            <button class="ghost" type="button" id="resetForm">Reset</button>
+            <button class="danger" type="button" id="deleteCharacter" title="Delete currently loaded character">Delete</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h3>Config</h3>
+        <div class="divider"></div>
+        <div class="row">
+          <div class="col">
+            <label>Summon Cost — Coins</label>
+            <input type="number" id="cfgCostCoins" min="0" value="100">
+          </div>
+          <div class="col">
+            <label>Summon Cost — Gems</label>
+            <input type="number" id="cfgCostGems" min="0" value="1">
+          </div>
+          <div class="col">
+            <label>Rewards per Summon (Coins)</label>
+            <input type="number" id="cfgRewardCoins" min="0" value="10">
+          </div>
+          <div class="col">
+            <label>Rewards per Summon (Gems)</label>
+            <input type="number" id="cfgRewardGems" min="0" value="0">
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <h4>Leveling & Ascension</h4>
+        <div class="row">
+          <div class="col"><label>Max Level</label><input type="number" id="cfgMaxLevel" min="1" value="100"></div>
+          <div class="col"><label>Level Base Cost (coins)</label><input type="number" id="cfgLevelBase" min="0" value="20"></div>
+          <div class="col"><label>Level Cost Growth (× per level)</label><input type="number" step="0.01" id="cfgLevelGrowth" min="1" value="1.12"></div>
+          <div class="col"><label>Ascension Stat Boost %</label><input type="number" id="cfgAscendBoost" min="0" value="10"></div>
+        </div>
+
+        <div class="divider"></div>
+        <h4>Duplicate Reward Scaling</h4>
+        <div class="kvs" id="dupRewardsEditor"></div>
+
+        <div class="divider"></div>
+        <h4>Rarity/Tier Weights</h4>
+        <p class="help">Higher weight = more common. Adjust to taste.</p>
+        <div id="weightsEditor" class="kvs"></div>
+
+        <div class="divider"></div>
+        <h4>Rarity Gradient Colors (Border Glow)</h4>
+        <div id="colorEditor" class="kvs"></div>
+
+        <div class="divider"></div>
+        <h4>Shop Settings</h4>
+        <div class="row">
+          <div class="col"><label>Exchange: Coins per 1 Gem</label><input type="number" id="cfgCoinsPerGem" min="1" value="1000"></div>
+          <div class="col"><label>Exchange: Gems per 1000 Coins</label><input type="number" id="cfgGemsPer1000Coins" min="0" value="1"></div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label>Sell Values by Tier (Coins)</label>
+            <textarea id="cfgSellValues" class="mono" placeholder='{"T1":5,"T2":8,...}'></textarea>
+          </div>
+          <div class="col">
+            <label>Packs JSON (editable)</label>
+            <textarea id="cfgPacks" class="mono" placeholder='[{"id":"std","name":"Standard","currency":"coins","price":100,"size":1,"tags":[],"weights":{"T1":1,"T2":1,"T3":1}}]'></textarea>
+            <p class="help">Pack fields: id, name, currency ("coins"|"gems"), price, size (1|10), tags (array), weights (tier multipliers).</p>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button class="primary" id="saveConfig">Save Config</button>
+          <button class="ghost" id="resetConfig">Reset Config</button>
+          <button class="warn" id="resetAll">Factory Reset (wipe data)</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Lightbox for full character view -->
+  <div id="lightbox">
+    <div class="content">
+      <div class="body">
+        <div class="imgwrap" id="lbImgWrap"></div>
+        <div class="meta">
+          <div class="flex-between">
+            <h3 id="lbName">Character</h3>
+            <button class="ghost" id="lbClose">Close</button>
+          </div>
+          <div class="tiny" id="lbTier"></div>
+          <div class="tiny" id="lbWorld"></div>
+          <div class="row" id="lbTags" style="margin:8px 0"></div>
+          <div id="lbConcept" class="tiny"></div>
+          <div class="divider"></div>
+          <div class="stats" id="lbStats"></div>
+          <div class="divider"></div>
+          <p id="lbDesc" class="help"></p>
+          <div class="row" style="margin-top:8px">
+            <button class="primary" id="lbEdit">Edit Character</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+<script>
+/* =========================
+   Data Model & Persistence
+   ========================= */
+const TIERS = [
+  {id:"T1", grade:"F", name:"Common", concept:"Has no notable skills or powers."},
+  {id:"T2", grade:"E", name:"Uncommon", concept:"Possesses a useful, real-world skill."},
+  {id:"T3", grade:"D", name:"Rare", concept:"Embodies peak human ability or exceptional latent potential."},
+  {id:"T4", grade:"C", name:"Epic", concept:"First step beyond human limits; minor supernatural traits."},
+  {id:"T5", grade:"B", name:"Legendary", concept:"Wields a defined, versatile superpower."},
+  {id:"T6", grade:"A", name:"Mythic", concept:"Commands massive power; city-block level."},
+  {id:"T7", grade:"S", name:"Supreme", concept:"City or nation-scale power; mythical."},
+  {id:"T8", grade:"SS", name:"Arcane", concept:"Reality-bending or esoteric hax; continental reach."},
+  {id:"T9", grade:"SSS", name:"Celestial", concept:"Astronomical scale; moons/planets."},
+  {id:"T10", grade:"U", name:"Ultimate", concept:"Warps planetary systems or destroys stars."},
+  {id:"TX", grade:"X", name:"Godlike", concept:"Breaks the rules of its own universe."},
+  {id:"TY", grade:"Y", name:"Multiversal", concept:"Exists across multiple realities."},
+  {id:"TZ", grade:"Z", name:"Omnipotent", concept:"Absolute authority over all existence."},
+];
+const DEFAULT_CHARACTERS = [
+  { id: crypto.randomUUID(), name:"Ada the Tinkerer", world:"Gearfall", imageUrl:"https://via.placeholder.com/960x600?text=Ada+the+Tinkerer",
+    tier:"T2", grade:"E", rarityName:"Uncommon", coreConcept:"Ingenious mechanic", 
+    tags:["engineer","support"], description:"Keeps the party running with gadgets.",
+    stats:{str:9,dex:12,con:11,int:16,wis:12,cha:10}
+  },
+  { id: crypto.randomUUID(), name:"Rook Sentinel", world:"Aegis", imageUrl:"https://via.placeholder.com/960x600?text=Rook+Sentinel",
+    tier:"T4", grade:"C", rarityName:"Epic", coreConcept:"Arcane warder",
+    tags:["tank","barrier"], description:"Projects shimmering bulwarks.", 
+    stats:{str:15,dex:10,con:16,int:12,wis:12,cha:9}
+  },
+  { id: crypto.randomUUID(), name:"Nyx of the Black Tide", world:"Umbramar", imageUrl:"https://via.placeholder.com/960x600?text=Nyx+of+the+Black+Tide",
+    tier:"T6", grade:"A", rarityName:"Mythic", coreConcept:"Abyssal sorceress",
+    tags:["caster","water","dark"], description:"Sinks fleets beneath a whisper.", 
+    stats:{str:8,dex:14,con:12,int:19,wis:16,cha:15}
+  }
+];
+const DEFAULT_CONFIG = {
+  costCoins: 100, costGems: 1,
+  rewardCoins: 10, rewardGems: 0,
+  weights: { T1: 400, T2: 240, T3: 140, T4: 90, T5: 60, T6: 35, T7: 20, T8: 8, T9: 4, T10: 2, TX: 1, TY: 1, TZ: 1 },
+  coins: 500, gems: 5,
+  // duplicate rewards (groups)
+  duplicateRewards: { g1:{coins:10,gems:0}, g2:{coins:25,gems:0}, g3:{coins:50,gems:1}, g4:{coins:100,gems:2}, g5:{coins:250,gems:5}, g6:{coins:1000,gems:10} },
+  // rarity gradient colors
+  rarityColors:{ T1:{from:"#777777",to:"#aaaaaa"}, T2:{from:"#808080",to:"#b5b5b5"},
+    T3:{from:"#3a6cf0",to:"#7ebaff"}, T4:{from:"#4b5bff",to:"#9da6ff"},
+    T5:{from:"#a764ff",to:"#ff8bff"}, T6:{from:"#c46bff",to:"#ffb7ff"},
+    T7:{from:"#ff9d2f",to:"#ff6126"}, T8:{from:"#ff7a00",to:"#ff3d00"},
+    T9:{from:"#ffe45e",to:"#ffffff"}, T10:{from:"#ffd36e",to:"#fff2a8"},
+    TX:{from:"#ffd36e",to:"#ffffff"}, TY:{from:"#89f7fe",to:"#66a6ff"}, TZ:{from:"#66a6ff",to:"#c3f0ff"}
+  },
+  // leveling and ascension
+  maxLevel: 100, levelBaseCost: 20, levelCostGrowth: 1.12, ascendBoostPercent: 10,
+  // shop / exchange
+  coinsPerGem: 1000, gemsPer1000Coins: 1,
+  sellValues: {"T1":5,"T2":8,"T3":12,"T4":20,"T5":35,"T6":60,"T7":90,"T8":140,"T9":220,"T10":350,"TX":500,"TY":800,"TZ":1200},
+  packs: [
+    {id:"std", name:"Standard Pack", currency:"coins", price:100, size:1, tags:[], weights:{}},
+    {id:"epic", name:"Epic Focus", currency:"gems", price:1, size:1, tags:[], weights:{"T4":1.5,"T5":1.2}},
+    {id:"water", name:"Themed: Water", currency:"coins", price:200, size:1, tags:["water"], weights:{}},
+    {id:"x10_std", name:"Standard x10", currency:"coins", price:1000, size:10, tags:[], weights:{}}
+  ]
+};
+const LS_KEYS = { characters: "cb_characters", config: "cb_config", inventory: "cb_inventory" };
+
+function loadConfig(){
+  const stored = JSON.parse(localStorage.getItem(LS_KEYS.config) || "null");
+  const cfg = stored || DEFAULT_CONFIG;
+  // ensure structures
+  TIERS.forEach(t=>{
+    if(!(t.id in cfg.weights)) cfg.weights[t.id]=1;
+    if(!cfg.rarityColors) cfg.rarityColors = {};
+    if(!(t.id in cfg.rarityColors)) cfg.rarityColors[t.id] = {from:"#888",to:"#bbb"};
+  });
+  if(!cfg.duplicateRewards) cfg.duplicateRewards = JSON.parse(JSON.stringify(DEFAULT_CONFIG.duplicateRewards));
+  if(!cfg.sellValues) cfg.sellValues = JSON.parse(JSON.stringify(DEFAULT_CONFIG.sellValues));
+  if(!cfg.packs) cfg.packs = JSON.parse(JSON.stringify(DEFAULT_CONFIG.packs));
+  if(typeof cfg.maxLevel!=="number") cfg.maxLevel = DEFAULT_CONFIG.maxLevel;
+  if(!cfg.levelBaseCost) cfg.levelBaseCost = DEFAULT_CONFIG.levelBaseCost;
+  if(!cfg.levelCostGrowth) cfg.levelCostGrowth = DEFAULT_CONFIG.levelCostGrowth;
+  if(!cfg.ascendBoostPercent) cfg.ascendBoostPercent = DEFAULT_CONFIG.ascendBoostPercent;
+  if(!cfg.coinsPerGem) cfg.coinsPerGem = DEFAULT_CONFIG.coinsPerGem;
+  if(cfg.gemsPer1000Coins==null) cfg.gemsPer1000Coins = DEFAULT_CONFIG.gemsPer1000Coins;
+  localStorage.setItem(LS_KEYS.config, JSON.stringify(cfg));
+  return cfg;
+}
+function saveConfig(cfg){ localStorage.setItem(LS_KEYS.config, JSON.stringify(cfg)); }
+function loadCharacters(){ const data = JSON.parse(localStorage.getItem(LS_KEYS.characters) || "null"); if(data && Array.isArray(data) && data.length) return data; localStorage.setItem(LS_KEYS.characters, JSON.stringify(DEFAULT_CHARACTERS)); return DEFAULT_CHARACTERS; }
+function saveCharacters(list){ localStorage.setItem(LS_KEYS.characters, JSON.stringify(list)); }
+function loadInventory(){ return JSON.parse(localStorage.getItem(LS_KEYS.inventory)||"[]"); }
+function saveInventory(inv){ localStorage.setItem(LS_KEYS.inventory, JSON.stringify(inv)); }
+let CONFIG = loadConfig(); let CHARACTERS = loadCharacters(); let INVENTORY = loadInventory();
+
+/* =========================
+   UI Helpers
+   ========================= */
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+function option(el, value, text){ const o=document.createElement("option"); o.value=value; o.textContent=text; el.appendChild(o); }
+function formatTier(tid){ const t = TIERS.find(x=>x.id===tid); return t ? `${t.id} · ${t.name}` : tid; }
+function imgFallback(ev){ ev.target.onerror=null; ev.target.src="https://via.placeholder.com/960x600?text=No+Image"; }
+function toast(msg, ms=1600){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none", ms); }
+function gradStyleForTier(tid){ const col = CONFIG.rarityColors[tid] || {from:"#777",to:"#aaa"}; return `background: linear-gradient(135deg, ${col.from}, ${col.to}); box-shadow: 0 0 18px ${col.to}55;`; }
+function nextTierId(cur){ const idx = TIERS.findIndex(t=>t.id===cur); return (idx>=0 && idx<TIERS.length-1) ? TIERS[idx+1].id : cur; }
+function isMaxTier(tid){ return TIERS.findIndex(t=>t.id===tid)===TIERS.length-1; }
+
+/* =========================
+   Tabs
+   ========================= */
+const tabIds = ["summon","database","inventory","shop","editor"];
+$("#tabs").addEventListener("click",(e)=>{
+  const el = e.target.closest(".tab"); if(!el) return;
+  $$(".tab").forEach(t=>t.classList.remove("active"));
+  el.classList.add("active");
+  const tab = el.dataset.tab;
+  tabIds.forEach(id=>document.getElementById(id).classList.toggle("hidden", id!==tab));
+  if(tab==="database") renderDatabase();
+  if(tab==="inventory") { renderInventory(); renderSellList(); }
+  if(tab==="shop") { populateShopPacks(); renderSellList(); }
+});
+
+/* =========================
+   Populate Tier selects
+   ========================= */
+["tier","tierFilter","invTier"].forEach(id=>{
+  const sel = document.getElementById(id);
+  if(!sel) return;
+  if(id!=="tier") option(sel,"","Any");
+  TIERS.forEach(t=>option(sel, t.id, `${t.id}${id==="tier" ? " ("+t.grade+") — "+t.name : " — "+t.name}`));
+});
+
+/* =========================
+   Currency UI
+   ========================= */
+const coinsEl = $("#coins"); const gemsEl = $("#gems");
+function refreshCurrency(){ coinsEl.textContent = CONFIG.coins ?? 0; gemsEl.textContent = CONFIG.gems ?? 0; $("#costCoins").textContent = CONFIG.costCoins; $("#costGems").textContent = CONFIG.costGems; }
+$("#addCoins").onclick = ()=>{ CONFIG.coins = (CONFIG.coins||0)+100; saveConfig(CONFIG); refreshCurrency(); };
+$("#addGems").onclick = ()=>{ CONFIG.gems = (CONFIG.gems||0)+1; saveConfig(CONFIG); refreshCurrency(); };
+
+/* =========================
+   Config Editor
+   ========================= */
+function drawWeightsEditor(){ const wrap = $("#weightsEditor"); wrap.innerHTML=""; TIERS.forEach(t=>{ const div = document.createElement("div"); div.innerHTML = `<label class="tiny">${t.id} — ${t.name}</label><input type="number" min="0" value="${CONFIG.weights[t.id] ?? 0}" data-tid="${t.id}">`; wrap.appendChild(div); }); previewWeights(); }
+function drawDupRewardsEditor(){ const map = [{key:"g1", label:"T1–T3"},{key:"g2", label:"T4–T5"},{key:"g3", label:"T6–T7"},{key:"g4", label:"T8–T9"},{key:"g5", label:"T10–TX"},{key:"g6", label:"TY–TZ"}]; const wrap = $("#dupRewardsEditor"); wrap.innerHTML=""; map.forEach(m=>{ const val = CONFIG.duplicateRewards[m.key] || {coins:0,gems:0}; const div = document.createElement("div"); div.innerHTML = `<label class="tiny">${m.label}</label><div class="row"><div class="col"><input type="number" min="0" value="${val.coins}" data-dr="${m.key}" data-type="coins"><div class="tiny">Coins</div></div><div class="col"><input type="number" min="0" value="${val.gems}" data-dr="${m.key}" data-type="gems"><div class="tiny">Gems</div></div></div>`; wrap.appendChild(div); }); }
+function drawColorEditor(){ const wrap = $("#colorEditor"); wrap.innerHTML=""; TIERS.forEach(t=>{ const c = CONFIG.rarityColors[t.id] || {from:"#777",to:"#aaa"}; const div = document.createElement("div"); div.innerHTML = `<label class="tiny">${t.id} — ${t.name}</label><div class="row"><div class="col"><input type="color" value="${c.from}" data-col="${t.id}" data-which="from"><div class="tiny">Start</div></div><div class="col"><input type="color" value="${c.to}" data-col="${t.id}" data-which="to"><div class="tiny">End</div></div></div>`; wrap.appendChild(div); }); }
+function previewWeights(){ const pv = $("#weightsPreview"); pv.innerHTML=""; TIERS.forEach(t=>{ const dv = document.createElement("div"); dv.innerHTML = `<div class="tiny">${t.id} • ${t.name}</div><div class="mono">${CONFIG.weights[t.id] || 0}</div>`; pv.appendChild(dv); }); }
+function resetConfigToDefaults(){ CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); saveConfig(CONFIG); drawWeightsEditor(); drawDupRewardsEditor(); drawColorEditor(); refreshCurrency(); previewWeights(); setConfigInputs(); populateShopPacks(); alert("Config reset to defaults."); }
+function setConfigInputs(){ $("#cfgCostCoins").value = CONFIG.costCoins; $("#cfgCostGems").value = CONFIG.costGems; $("#cfgRewardCoins").value = CONFIG.rewardCoins; $("#cfgRewardGems").value = CONFIG.rewardGems; $("#cfgMaxLevel").value = CONFIG.maxLevel; $("#cfgLevelBase").value = CONFIG.levelBaseCost; $("#cfgLevelGrowth").value = CONFIG.levelCostGrowth; $("#cfgAscendBoost").value = CONFIG.ascendBoostPercent; $("#cfgCoinsPerGem").value = CONFIG.coinsPerGem; $("#cfgGemsPer1000Coins").value = CONFIG.gemsPer1000Coins; $("#cfgSellValues").value = JSON.stringify(CONFIG.sellValues,null,2); $("#cfgPacks").value = JSON.stringify(CONFIG.packs,null,2); }
+setConfigInputs(); drawWeightsEditor(); drawDupRewardsEditor(); drawColorEditor();
+$("#saveConfig").onclick = ()=>{
+  CONFIG.costCoins = parseInt($("#cfgCostCoins").value)||0; CONFIG.costGems = parseInt($("#cfgCostGems").value)||0;
+  CONFIG.rewardCoins = parseInt($("#cfgRewardCoins").value)||0; CONFIG.rewardGems = parseInt($("#cfgRewardGems").value)||0;
+  CONFIG.maxLevel = parseInt($("#cfgMaxLevel").value)||100;
+  CONFIG.levelBaseCost = parseFloat($("#cfgLevelBase").value)||0;
+  CONFIG.levelCostGrowth = parseFloat($("#cfgLevelGrowth").value)||1;
+  CONFIG.ascendBoostPercent = parseFloat($("#cfgAscendBoost").value)||0;
+  CONFIG.coinsPerGem = parseInt($("#cfgCoinsPerGem").value)||1000;
+  CONFIG.gemsPer1000Coins = parseInt($("#cfgGemsPer1000Coins").value)||1;
+  // weights
+  $$("#weightsEditor input[type='number']").forEach(inp=>{ CONFIG.weights[inp.dataset.tid] = Math.max(0, parseInt(inp.value)||0); });
+  // duplicate rewards
+  $$("#dupRewardsEditor input[type='number']").forEach(inp=>{ const k = inp.dataset.dr; const tp = inp.dataset.type; CONFIG.duplicateRewards[k] = CONFIG.duplicateRewards[k] || {coins:0,gems:0}; CONFIG.duplicateRewards[k][tp] = Math.max(0, parseInt(inp.value)||0); });
+  // colors
+  $$("#colorEditor input[type='color']").forEach(inp=>{ const tid = inp.dataset.col; const which = inp.dataset.which; CONFIG.rarityColors[tid] = CONFIG.rarityColors[tid] || {from:"#777",to:"#aaa"}; CONFIG.rarityColors[tid][which] = inp.value; });
+  // sell & packs
+  try{ CONFIG.sellValues = JSON.parse($("#cfgSellValues").value||"{}"); }catch{ alert("Sell Values JSON invalid."); }
+  try{ CONFIG.packs = JSON.parse($("#cfgPacks").value||"[]"); }catch{ alert("Packs JSON invalid."); }
+  saveConfig(CONFIG); refreshCurrency(); previewWeights(); populateShopPacks(); alert("Config saved.");
+};
+$("#resetConfig").onclick = resetConfigToDefaults;
+$("#resetAll").onclick = ()=>{
+  if(confirm("Factory reset will wipe characters, inventory, and config. Continue?")){
+    localStorage.removeItem(LS_KEYS.characters);
+    localStorage.removeItem(LS_KEYS.inventory);
+    localStorage.removeItem(LS_KEYS.config);
+    CONFIG = loadConfig(); CHARACTERS = loadCharacters(); INVENTORY = loadInventory();
+    setConfigInputs(); drawWeightsEditor(); drawDupRewardsEditor(); drawColorEditor();
+    refreshCurrency(); previewWeights(); renderDatabase(); renderInventory(); populateShopPacks(); clearForm();
+    alert("All data cleared. Restored factory defaults.");
+  }
+};
+
+/* =========================
+   Character Editor
+   ========================= */
+function clearForm(){ $("#charId").value=""; $("#name").value=""; $("#world").value=""; $("#imageUrl").value=""; $("#tier").value="T1"; $("#grade").value=""; $("#rarityName").value=""; $("#coreConcept").value=""; $("#tags").value=""; $("#description").value=""; ["str","dex","con","int","wis","cha"].forEach(k=>$("#"+k).value=10); }
+clearForm();
+function loadToForm(char){
+  $("#charId").value = char.id; $("#name").value = char.name||""; $("#world").value = char.world||""; $("#imageUrl").value = char.imageUrl||""; $("#tier").value = char.tier||"T1"; $("#grade").value = char.grade||""; $("#rarityName").value = char.rarityName||""; $("#coreConcept").value = char.coreConcept||""; $("#tags").value = (char.tags||[]).join(", "); $("#description").value = char.description||"";
+  $("#str").value = char.stats?.str ?? 10; $("#dex").value = char.stats?.dex ?? 10; $("#con").value = char.stats?.con ?? 10; $("#int").value = char.stats?.int ?? 10; $("#wis").value = char.stats?.wis ?? 10; $("#cha").value = char.stats?.cha ?? 10;
+  // Switch to editor
+  $$(".tab").forEach(t=>t.classList.remove("active")); document.querySelector('.tab[data-tab="editor"]').classList.add("active"); tabIds.forEach(id=>document.getElementById(id).classList.toggle("hidden", id!=="editor"));
+}
+function formToCharacter(){
+  const id = $("#charId").value || crypto.randomUUID();
+  const obj = { id,
+    name: $("#name").value.trim(),
+    world: $("#world").value.trim(),
+    imageUrl: $("#imageUrl").value.trim(),
+    tier: $("#tier").value,
+    grade: $("#grade").value.trim(),
+    rarityName: $("#rarityName").value.trim(),
+    coreConcept: $("#coreConcept").value.trim(),
+    tags: $("#tags").value.split(",").map(s=>s.trim()).filter(Boolean),
+    description: $("#description").value.trim(),
+    stats: { str: +$("#str").value||10, dex:+$("#dex").value||10, con:+$("#con").value||10, int:+$("#int").value||10, wis:+$("#wis").value||10, cha:+$("#cha").value||10 }
+  };
+  return obj;
+}
+$("#charForm").addEventListener("submit", (e)=>{
+  e.preventDefault();
+  const obj = formToCharacter();
+  if(!obj.name){ alert("Name is required."); return; }
+  const idx = CHARACTERS.findIndex(c=>c.id===obj.id);
+  if(idx>=0) CHARACTERS[idx]=obj; else CHARACTERS.push(obj);
+  saveCharacters(CHARACTERS);
+  alert("Character saved.");
+  renderDatabase(); renderInventory(); renderSellList(); populateShopPacks();
+});
+$("#resetForm").onclick = clearForm;
+$("#deleteCharacter").onclick = ()=>{
+  const id = $("#charId").value;
+  if(!id){ alert("No character loaded."); return; }
+  if(confirm("Delete this character?")){
+    CHARACTERS = CHARACTERS.filter(c=>c.id!==id); saveCharacters(CHARACTERS);
+    INVENTORY = INVENTORY.filter(i=>i.characterId!==id); saveInventory(INVENTORY);
+    clearForm(); renderDatabase(); renderInventory(); renderSellList(); alert("Deleted.");
+  }
+};
+
+/* =========================
+   Database List & Search
+   ========================= */
+const searchInput = $("#searchInput"), tagsFilter = $("#tagsFilter"), worldFilter = $("#worldFilter"), tierFilter = $("#tierFilter");
+function characterCard(c){
+  const grad = gradStyleForTier(c.tier);
+  return `<div class="item">
+      <div class="frame" style="${grad}">
+        <img src="${c.imageUrl||'https://via.placeholder.com/960x600?text=No+Image'}" onerror="imgFallback(event)" alt="${c.name}" data-fullview="${c.id}">
+      </div>
+      <div class="body">
+        <div class="flex-between">
+          <div><b>${c.name}</b><div class="tiny">${formatTier(c.tier)} • ${c.rarityName||""}</div></div>
+          <button class="ghost" data-act="edit" data-id="${c.id}">Edit</button>
+        </div>
+        <div class="tiny">${c.world?('🌍 '+c.world):''}</div>
+        <div>${(c.tags||[]).map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+        <div class="tiny">${c.coreConcept||""}</div>
+      </div>
+    </div>`;
+}
+function renderDatabase(){
+  const list = $("#dbList"); list.innerHTML="";
+  const q = (searchInput.value||"").toLowerCase();
+  const tagTerms = (tagsFilter.value||"").toLowerCase().split(",").map(s=>s.trim()).filter(Boolean);
+  const tierVal = tierFilter.value;
+  const worldVal = (worldFilter.value||"").toLowerCase();
+  let arr = [...CHARACTERS];
+  arr = arr.filter(c=>{
+    if(q){ const hay = [c.name,c.description,c.world].map(s=>(s||"").toLowerCase()).join(" "); if(!hay.includes(q)) return false; }
+    if(tagTerms.length){ const tags = (c.tags||[]).map(t=>t.toLowerCase()); const hasAll = tagTerms.every(tt => tags.includes(tt)); if(!hasAll) return false; }
+    if(tierVal && c.tier!==tierVal) return false;
+    if(worldVal && !(c.world||"").toLowerCase().includes(worldVal)) return false;
+    return true;
+  });
+  if(arr.length===0){ list.innerHTML = `<div class="muted">No characters match your filters.</div>`; return; }
+  list.innerHTML = arr.map(characterCard).join("");
+  list.querySelectorAll("button[data-act='edit']").forEach(btn=>{ btn.onclick = ()=>{ const id = btn.dataset.id; const c = CHARACTERS.find(x=>x.id===id); if(c) loadToForm(c); }; });
+  list.querySelectorAll("img[data-fullview]").forEach(img=>{ img.onclick = ()=> openLightbox(CHARACTERS.find(c=>c.id===img.dataset.fullview)); });
+}
+searchInput.addEventListener("input", renderDatabase); tagsFilter.addEventListener("input", renderDatabase); tierFilter.addEventListener("change", renderDatabase); worldFilter.addEventListener("input", renderDatabase);
+
+/* =========================
+   Export / Import
+   ========================= */
+$("#exportBtn").onclick = ()=>{
+  const data = { characters: CHARACTERS, config: CONFIG };
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "gacha_data.json"; a.click(); URL.revokeObjectURL(url);
+};
+$("#importFile").addEventListener("change",(e)=>{
+  const file = e.target.files[0]; if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const obj = JSON.parse(reader.result);
+      if(obj.characters && Array.isArray(obj.characters)) CHARACTERS=obj.characters;
+      if(obj.config) CONFIG = {...CONFIG, ...obj.config};
+      saveCharacters(CHARACTERS); saveConfig(CONFIG);
+      setConfigInputs(); drawWeightsEditor(); drawDupRewardsEditor(); drawColorEditor();
+      refreshCurrency(); previewWeights(); renderDatabase(); renderInventory(); populateShopPacks(); renderSellList();
+      alert("Import complete.");
+    }catch(err){ alert("Invalid JSON."); }
+  };
+  reader.readAsText(file);
+});
+
+/* =========================
+   Inventory + Leveling + Ascension
+   ========================= */
+const invSearch = $("#invSearch"), invWorld = $("#invWorld"), invTier = $("#invTier"), invSort = $("#invSort");
+function getInvEntryFor(id){ return INVENTORY.find(i=>i.characterId===id); }
+function getInventoryEntries(){
+  return INVENTORY.map(it=>{ const c = CHARACTERS.find(x=>x.id===it.characterId); return c ? {...it, character: c} : null; }).filter(Boolean);
+}
+function ensureInvEntry(charId){
+  let e = getInvEntryFor(charId);
+  if(!e){ e = { characterId: charId, count:1, lastSummoned: new Date().toISOString(), level:1, asc:0 }; INVENTORY.push(e); }
+  if(e.level==null) e.level=1; if(e.asc==null) e.asc=0;
+  saveInventory(INVENTORY); return e;
+}
+function levelCost(level){ return Math.round(CONFIG.levelBaseCost * Math.pow(CONFIG.levelCostGrowth, Math.max(0, level-1))); }
+function tryLevelUp(entry, steps=1){
+  for(let i=0;i<steps;i++){
+    if(entry.level>=CONFIG.maxLevel){ toast("Reached max level."); return; }
+    const cost = levelCost(entry.level);
+    if((CONFIG.coins||0) < cost){ toast(`Need ${cost} coins to level.`); return; }
+    CONFIG.coins -= cost; entry.level += 1;
+  }
+  saveConfig(CONFIG); saveInventory(INVENTORY); refreshCurrency(); renderInventory(); toast("Level up!");
+}
+function ascend(entry, character){
+  if(entry.level<CONFIG.maxLevel){ toast("Reach max level to Ascend."); return; }
+  if(isMaxTier(character.tier)){ toast("Already at max tier."); return; }
+  // increase tier
+  character.tier = nextTierId(character.tier);
+  // stat boost
+  const boost = 1 + (CONFIG.ascendBoostPercent||0)/100;
+  ["str","dex","con","int","wis","cha"].forEach(k=>{ character.stats[k] = Math.min(30, Math.floor((character.stats[k]||10)*boost)); });
+  entry.level = 1; entry.asc = (entry.asc||0)+1;
+  saveCharacters(CHARACTERS); saveInventory(INVENTORY); renderInventory(); renderDatabase(); toast("Ascended! Tier increased.");
+}
+function renderInventory(){
+  const list = $("#invList"); list.innerHTML="";
+  let entries = getInventoryEntries();
+  // filters
+  const q = (invSearch.value||"").toLowerCase(); const worldVal = (invWorld.value||"").toLowerCase(); const tierVal = invTier.value;
+  entries = entries.filter(e=>{
+    const c = e.character;
+    if(q && !(c.name||"").toLowerCase().includes(q)) return false;
+    if(worldVal && !(c.world||"").toLowerCase().includes(worldVal)) return false;
+    if(tierVal && c.tier!==tierVal) return false;
+    return true;
+  });
+  // sorting
+  const tierOrder = TIERS.map(t=>t.id);
+  if(invSort.value==="name") entries.sort((a,b)=>a.character.name.localeCompare(b.character.name));
+  if(invSort.value==="tier") entries.sort((a,b)=> tierOrder.indexOf(a.character.tier)-tierOrder.indexOf(b.character.tier));
+  if(invSort.value==="count") entries.sort((a,b)=> (b.count||0)-(a.count||0));
+  if(invSort.value==="recent") entries.sort((a,b)=> new Date(b.lastSummoned)-new Date(a.lastSummoned));
+  if(invSort.value==="level") entries.sort((a,b)=> (b.level||1)-(a.level||1));
+
+  if(entries.length===0){ list.innerHTML = `<div class="muted">No items in inventory yet. Summon or buy a pack!</div>`; return; }
+  list.innerHTML = entries.map(e=>{
+    const c = e.character; const grad = gradStyleForTier(c.tier); const lvl = e.level||1; const asc = e.asc||0;
+    const canAsc = lvl>=CONFIG.maxLevel && !isMaxTier(c.tier);
+    return `<div class="item">
+      <div class="frame" style="${grad}">
+        <img src="${c.imageUrl||'https://via.placeholder.com/960x600?text=No+Image'}" onerror="imgFallback(event)" alt="${c.name}" data-fullview="${c.id}">
+      </div>
+      <div class="body">
+        <div class="flex-between">
+          <div><b>${c.name}</b> <span class="badge">x${e.count||1}</span></div>
+          <div class="tiny">${formatTier(c.tier)}</div>
+        </div>
+        <div class="tiny">${c.world?('🌍 '+c.world):''}</div>
+        <div class="row" style="margin:6px 0">${(c.tags||[]).map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+        <div class="row">
+          <span class="badge">Lvl ${lvl}/${CONFIG.maxLevel}</span>
+          <span class="badge">Asc ${asc}</span>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button class="ghost" data-id="${c.id}" data-act="lvl1">Level +1 (cost ${levelCost(lvl)})</button>
+          <button class="ghost" data-id="${c.id}" data-act="lvl10">Level +10</button>
+          ${canAsc ? `<button class="primary" data-id="${c.id}" data-act="ascend">Ascend</button>` : ""}
+          <button class="ghost" data-id="${c.id}" data-act="edit">Edit</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  list.querySelectorAll("button[data-act='edit']").forEach(btn=> btn.onclick = ()=>{ const c = CHARACTERS.find(x=>x.id===btn.dataset.id); if(c) loadToForm(c); });
+  list.querySelectorAll("button[data-act='lvl1']").forEach(btn=> btn.onclick = ()=>{ const e = ensureInvEntry(btn.dataset.id); tryLevelUp(e,1); });
+  list.querySelectorAll("button[data-act='lvl10']").forEach(btn=> btn.onclick = ()=>{ const e = ensureInvEntry(btn.dataset.id); tryLevelUp(e,10); });
+  list.querySelectorAll("button[data-act='ascend']").forEach(btn=> btn.onclick = ()=>{ const e = ensureInvEntry(btn.dataset.id); const c = CHARACTERS.find(x=>x.id===btn.dataset.id); ascend(e,c); });
+  list.querySelectorAll("img[data-fullview]").forEach(img=> img.onclick = ()=> openLightbox(CHARACTERS.find(c=>c.id===img.dataset.fullview)));
+}
+
+/* =========================
+   Summoning + Inventory + Duplicate rewards
+   ========================= */
+function pickByWeight(weights){ const entries = Object.entries(weights).filter(([k,v])=>v>0); const sum = entries.reduce((a,[,v])=>a+v,0); let r = Math.random()*sum; for(const [tid,w] of entries){ if((r-=w)<=0) return tid; } return entries.at(-1)?.[0] || "T1"; }
+function summonOnce(customWeights=null, tagFilter=[]){
+  if(CHARACTERS.length===0){ alert("No characters in database. Add some in Editor."); return null; }
+  const weights = customWeights ? {...CONFIG.weights, ...customWeights} : CONFIG.weights;
+  const tid = pickByWeight(weights);
+  let pool = CHARACTERS.filter(c=>c.tier===tid);
+  if(tagFilter && tagFilter.length){ const tf = tagFilter.map(s=>s.toLowerCase()); const tagged = pool.filter(c=>(c.tags||[]).map(t=>t.toLowerCase()).some(t=>tf.includes(t))); if(tagged.length) pool = tagged; }
+  if(pool.length===0) pool = CHARACTERS;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function dupRewardForTier(tid){
+  const group = ["T1","T2","T3"].includes(tid) ? "g1" : ["T4","T5"].includes(tid) ? "g2" : ["T6","T7"].includes(tid) ? "g3" : ["T8","T9"].includes(tid) ? "g4" : ["T10","TX"].includes(tid) ? "g5" : "g6";
+  return CONFIG.duplicateRewards[group] || {coins:0,gems:0};
+}
+function addToInventoryOnSummon(char){
+  let entry = INVENTORY.find(i=>i.characterId===char.id);
+  const now = new Date().toISOString();
+  let duplicate = !!entry;
+  if(entry){ entry.count = (entry.count||1)+1; entry.lastSummoned = now; }
+  else { entry = { characterId: char.id, count:1, lastSummoned: now, level:1, asc:0 }; INVENTORY.push(entry); }
+  saveInventory(INVENTORY);
+  return duplicate;
+}
+function showSummon(c){
+  const box = $("#summonedView"); if(!c){ box.innerHTML = `<div class="muted">No result.</div>`; return; }
+  const grad = gradStyleForTier(c.tier);
+  box.innerHTML = `<div class="rarity-frame rarity-glow" style="${grad}"><div class="rarity-inner"><img src="${c.imageUrl||'https://via.placeholder.com/960x600?text=No+Image'}" onerror="imgFallback(event)" alt="${c.name}" id="summonedImg"></div></div>
+    <div style="margin-top:10px"><div><b>${c.name}</b> — <span class="tiny">${formatTier(c.tier)} • ${c.rarityName||""}</span></div>
+    <div class="tiny">${c.world?('🌍 '+c.world):''}</div><div class="row" style="margin-top:6px">${(c.tags||[]).map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+    <div class="tiny">${c.coreConcept||""}</div><div class="row" style="margin-top:8px"><button class="ghost" id="editSummoned">Edit Character</button><button class="ghost" id="viewFull">Full View</button></div></div>`;
+  $("#editSummoned").onclick = ()=> loadToForm(c); $("#viewFull").onclick = ()=> openLightbox(c);
+}
+function canAffordCoins(v){ return (CONFIG.coins||0) >= v; }
+function canAffordGems(v){ return (CONFIG.gems||0) >= v; }
+function doSummon(costType, custom={}){ // custom: {weights, tags}
+  const coinCost = CONFIG.costCoins; const gemCost = CONFIG.costGems;
+  if(costType==="coins"){ if(!canAffordCoins(coinCost)) { alert("Not enough coins."); return; } CONFIG.coins -= coinCost; }
+  else if(costType==="gems"){ if(!canAffordGems(gemCost)) { alert("Not enough gems."); return; } CONFIG.gems -= gemCost; }
+  // base rewards for any summon
+  CONFIG.coins += CONFIG.rewardCoins||0; CONFIG.gems += CONFIG.rewardGems||0;
+  const res = summonOnce(custom.weights||null, custom.tags||[]);
+  if(!res){ saveConfig(CONFIG); refreshCurrency(); return; }
+  const isDup = addToInventoryOnSummon(res);
+  if(isDup){ const bonus = dupRewardForTier(res.tier); CONFIG.coins += bonus.coins||0; CONFIG.gems += bonus.gems||0; toast(`Duplicate! Bonus +${bonus.coins||0} 🪙${bonus.gems?` & +${bonus.gems} 💎`:''}`); }
+  saveConfig(CONFIG); refreshCurrency(); showSummon(res); renderInventory();
+}
+$("#summonCoinsBtn").onclick = ()=>doSummon("coins");
+$("#summonGemsBtn").onclick = ()=>doSummon("gems");
+$("#freeSummonBtn").onclick = ()=>doSummon("free");
+
+/* =========================
+   Lightbox
+   ========================= */
+function openLightbox(c){
+  if(!c) return;
+  const col = CONFIG.rarityColors[c.tier] || {from:"#777",to:"#aaa"};
+  const wrap = $("#lbImgWrap");
+  wrap.innerHTML = `<div class="rarity-frame rarity-glow" style="background:linear-gradient(135deg, ${col.from}, ${col.to}); box-shadow:0 0 22px ${col.to}66;"><div class="rarity-inner"><img src="${c.imageUrl||'https://via.placeholder.com/960x600?text=No+Image'}" onerror="imgFallback(event)" alt="${c.name}"></div></div>`;
+  $("#lbName").textContent = c.name || "Character"; $("#lbTier").textContent = `${formatTier(c.tier)} • ${c.rarityName||""}`; $("#lbWorld").textContent = c.world ? `🌍 ${c.world}` : ""; $("#lbTags").innerHTML = (c.tags||[]).map(t=>`<span class="tag">${t}</span>`).join(""); $("#lbConcept").textContent = c.coreConcept||""; $("#lbDesc").textContent = c.description||""; $("#lbStats").innerHTML = ["str","dex","con","int","wis","cha"].map(k=>`<div><div class="mono">${k.toUpperCase()}</div><div>${c.stats?.[k]??10}</div></div>`).join(""); $("#lbEdit").onclick = ()=>{ closeLightbox(); loadToForm(c); }; $("#lightbox").style.display="flex";
+}
+function closeLightbox(){ $("#lightbox").style.display="none"; }
+$("#lbClose").onclick = closeLightbox;
+$("#lightbox").addEventListener("click",(e)=>{ if(e.target.id==="lightbox") closeLightbox(); });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closeLightbox(); });
+
+/* =========================
+   Shop: Packs & Selling
+   ========================= */
+const shopPackSel = $("#shopPack"), shopPackDesc = $("#shopPackDesc");
+function populateShopPacks(){
+  shopPackSel.innerHTML=""; CONFIG.packs.forEach(p=> option(shopPackSel,p.id,`${p.name} — ${p.price} ${p.currency}`));
+  updatePackDesc();
+}
+function getPackById(id){ return CONFIG.packs.find(p=>p.id===id); }
+function updatePackDesc(){
+  const p = getPackById(shopPackSel.value) || CONFIG.packs[0];
+  if(!p) { shopPackDesc.textContent=""; return; }
+  const tags = (p.tags||[]).join(", ") || "Any";
+  shopPackDesc.textContent = `Size: ${p.size||1} • Tags: ${tags} • Currency: ${p.currency}`;
+}
+shopPackSel.addEventListener("change", updatePackDesc);
+function buyPack(times=1){
+  const p = getPackById(shopPackSel.value) || CONFIG.packs[0]; if(!p) return;
+  const totalPacks = (p.size||1)*times;
+  const totalCost = p.price*times;
+  if(p.currency==="coins"){ if(!canAffordCoins(totalCost)) { toast("Not enough coins."); return; } CONFIG.coins -= totalCost; }
+  else { if(!canAffordGems(totalCost)) { toast("Not enough gems."); return; } CONFIG.gems -= totalCost; }
+  for(let i=0;i<totalPacks;i++){
+    doSummon("free", {weights:p.weights||{}, tags:p.tags||[]});
+  }
+  saveConfig(CONFIG); refreshCurrency();
+}
+$("#buyPack1").onclick = ()=>buyPack(1);
+$("#buyPack10").onclick = ()=>buyPack(10);
+$("#buyCoinsWithGems").onclick = ()=>{
+  if(!canAffordGems(1)) { toast("Need 1 gem."); return; }
+  CONFIG.gems -= 1; CONFIG.coins += CONFIG.coinsPerGem; saveConfig(CONFIG); refreshCurrency(); toast(`+${CONFIG.coinsPerGem} coins`);
+};
+$("#buyGemsWithCoins").onclick = ()=>{
+  if(!canAffordCoins(1000)) { toast("Need 1000 coins."); return; }
+  CONFIG.coins -= 1000; CONFIG.gems += CONFIG.gemsPer1000Coins; saveConfig(CONFIG); refreshCurrency(); toast(`+${CONFIG.gemsPer1000Coins} gems`);
+};
+
+function renderSellList(){
+  const list = $("#sellList"); if(!list) return;
+  const entries = getInventoryEntries(); if(entries.length===0){ list.innerHTML = `<div class="muted">Nothing to sell. Acquire characters via Summon or Shop.</div>`; return; }
+  list.innerHTML = entries.map(e=>{
+    const c = e.character; const grad = gradStyleForTier(c.tier);
+    const val = CONFIG.sellValues[c.tier]||1;
+    return `<div class="item">
+      <div class="frame" style="${grad}"><img src="${c.imageUrl||'https://via.placeholder.com/960x600?text=No+Image'}" onerror="imgFallback(event)" alt="${c.name}" data-fullview="${c.id}"></div>
+      <div class="body">
+        <div class="flex-between"><div><b>${c.name}</b> <span class="badge">x${e.count}</span></div><div class="tiny">${formatTier(c.tier)}</div></div>
+        <div class="row">
+          <button class="ghost" data-id="${c.id}" data-act="sell1">Sell 1 (+${val} 🪙)</button>
+          <button class="ghost" data-id="${c.id}" data-act="sellAll">Sell All (+${val*e.count} 🪙)</button>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  list.querySelectorAll("button[data-act='sell1']").forEach(btn=> btn.onclick = ()=> sellFromInventory(btn.dataset.id,1));
+  list.querySelectorAll("button[data-act='sellAll']").forEach(btn=> btn.onclick = ()=>{
+    const e = getInvEntryFor(btn.dataset.id); if(e) sellFromInventory(btn.dataset.id, e.count||1);
+  });
+  list.querySelectorAll("img[data-fullview]").forEach(img=> img.onclick = ()=> openLightbox(CHARACTERS.find(c=>c.id===img.dataset.fullview)));
+}
+function sellFromInventory(charId, qty){
+  const e = getInvEntryFor(charId); if(!e){ toast("Not in inventory."); return; }
+  const c = CHARACTERS.find(x=>x.id===charId); const val = CONFIG.sellValues[c.tier]||1;
+  const sellQty = Math.min(qty, e.count||1);
+  e.count -= sellQty; if(e.count<=0){ INVENTORY = INVENTORY.filter(x=>x!==e); }
+  CONFIG.coins += val*sellQty;
+  saveInventory(INVENTORY); saveConfig(CONFIG); refreshCurrency(); renderInventory(); renderSellList(); toast(`Sold x${sellQty} for +${val*sellQty} coins.`);
+}
+
+/* =========================
+   Init
+   ========================= */
+function init(){ refreshCurrency(); previewWeights(); renderDatabase(); renderInventory(); populateShopPacks(); renderSellList(); }
+init();
+</script>
+</body>
+</html>
