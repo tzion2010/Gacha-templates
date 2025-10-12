@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Eternal Archive: Resonance Nexus — HTML Prototype</title>
+<style>
+  :root{
+    --bg:#0f1116;
+    --panel:#131726;
+    --panel-2:#0d1020;
+    --text:#eaeaf2;
+    --muted:#9aa0b8;
+    --accent:#7dc3ff;
+    --good:#8bffb0;
+    --bad:#ff8ba1;
+    --warning:#ffd37d;
+    --chip:#1a2138;
+    --card:#151a2b;
+    --card-hover:#1b2136;
+    --border:#242a43;
+    --rare-F:#7a7f8c;
+    --rare-E:#6fa38a;
+    --rare-D:#58b58a;
+    --rare-C:#48d39f;
+    --rare-B:#59a2ff;
+    --rare-A:#7394ff;
+    --rare-S:#a978ff;
+    --rare-SS:#c06cff;
+    --rare-SSS:#e45bff;
+    --rare-EX:#ffcc66;
+    --rare-OMEGA:#ff5f6d;
+    --rare-XOMEGA:#ffffff;
+    --rare-INF:#86fff6;
+    --shadow: 0 8px 20px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji";
+    color:var(--text);
+    background:
+      radial-gradient(1200px 700px at 10% -10%, rgba(125,195,255,.15), transparent 60%),
+      radial-gradient(1000px 500px at 110% -20%, rgba(228,91,255,.12), transparent 60%),
+      linear-gradient(180deg, #0b0d14, #0e111b 30%, #0b0e19 100%);
+    min-height:100dvh;
+    display:grid;
+    grid-template-rows:auto 1fr;
+  }
+  header{
+    position:sticky; top:0; z-index:10;
+    background:rgba(10,12,18,.75);
+    backdrop-filter:saturate(1.2) blur(8px);
+    border-bottom:1px solid var(--border);
+    padding:10px 16px;
+    display:flex; align-items:center; gap:14px;
+  }
+  header img.logo{height:28px; width:auto; filter:drop-shadow(0 2px 4px rgba(0,0,0,.3));}
+  header h1{font-size:16px; margin:0; letter-spacing:.4px; font-weight:700}
+  header .tagline{color:var(--muted); font-size:12px}
+  header .spacer{flex:1}
+  header .pill{
+    background:linear-gradient(90deg, rgba(125,195,255,.18), rgba(228,91,255,.18));
+    border:1px solid var(--border);
+    padding:6px 10px;
+    border-radius:999px; font-size:12px; color:var(--text);
+  }
+  main{display:grid; grid-template-columns:300px 1fr; gap:16px; padding:16px;}
+  /* Sidebar */
+  .sidebar{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    padding:12px;
+    box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:12px;
+    max-height:calc(100dvh - 90px); position:sticky; top:66px; overflow:auto;
+  }
+  .group h3{margin:0 0 8px 0; font-size:13px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.08em}
+  .chip{
+    border:1px solid var(--border);
+    background:var(--chip);
+    color:var(--text);
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:12px; cursor:pointer;
+    transition:.15s transform, .15s background;
+    display:inline-flex; align-items:center; gap:6px; user-select:none;
+  }
+  .chip[data-active="true"]{background:#24305a}
+  .row{display:flex; flex-wrap:wrap; gap:8px}
+  input[type="search"]{
+    width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--border);
+    background:var(--panel-2); color:var(--text); outline:none;
+  }
+  /* Top controls */
+  .controls{
+    display:flex; gap:10px; flex-wrap:wrap;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px; padding:10px; align-items:center;
+    box-shadow:var(--shadow);
+  }
+  .btn{
+    background:#1a2242; border:1px solid var(--border); color:var(--text);
+    padding:10px 12px; border-radius:10px; cursor:pointer; font-weight:600;
+    transition:.15s transform, .15s background;
+  }
+  .btn:hover{transform:translateY(-1px); background:#1d2750}
+  .btn.primary{background:linear-gradient(90deg,#2c6bd6,#7a3cff); border:none}
+  .counter{font-size:12px; color:var(--muted)}
+  /* Grid */
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px;
+    margin-top:12px;
+  }
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px; padding:10px;
+    position:relative; overflow:hidden; cursor:pointer; transition:.12s transform, .12s background;
+    box-shadow:0 0 0 1px rgba(255,255,255,.02) inset;
+  }
+  .card:hover{background:var(--card-hover); transform:translateY(-1px)}
+  .portrait{
+    aspect-ratio:3/4; width:100%; border-radius:10px; background:#0e1326;
+    display:grid; place-items:center; font-weight:800; letter-spacing:.06em;
+    color:#c8d5ff; position:relative; overflow:hidden; isolation:isolate;
+  }
+  .portrait svg{width:80%; height:auto; opacity:.8}
+  .rarity{
+    position:absolute; inset:0; border-radius:10px; pointer-events:none;
+    --glow: transparent;
+    box-shadow: 0 0 0 1px var(--glow) inset, 0 0 24px 6px color-mix(in oklab, var(--glow) 45%, transparent);
+  }
+  .title{margin:8px 0 2px 0; font-weight:700; font-size:14px}
+  .meta{color:var(--muted); font-size:12px; display:flex; gap:8px; flex-wrap:wrap}
+  .badge{padding:2px 6px; border-radius:6px; border:1px solid var(--border); background:#182042; color:#a8b6ff; font-size:11px}
+  .fav{position:absolute; top:8px; right:8px; font-size:18px; opacity:.7}
+  /* Profile drawer */
+  .drawer{
+    position:fixed; inset:0; display:none; place-items:stretch; z-index:20;
+    background:rgba(3,6,14,.6); backdrop-filter:blur(10px);
+  }
+  .drawer[open]{display:grid}
+  .sheet{
+    margin-left:auto; width:min(680px, 100%); background:var(--panel);
+    border-left:1px solid var(--border); height:100%; padding:16px; overflow:auto;
+  }
+  .sheet .hero{
+    display:grid; grid-template-columns:220px 1fr; gap:16px; align-items:start;
+  }
+  .sheet .hero .big{
+    width:100%; aspect-ratio:3/4; border-radius:12px; background:#0e1326; position:relative; overflow:hidden;
+  }
+  .sheet h2{margin:.2rem 0 .4rem 0}
+  .sheet .field{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0}
+  .sheet .kv{font-size:12px; color:var(--muted)}
+  .sheet .bio{margin:10px 0 14px 0; color:#c6ccee; line-height:1.5}
+  .sheet .tabs{display:flex; gap:8px; margin:6px 0 10px}
+  .tab{padding:8px 10px; border-radius:8px; background:#171d33; border:1px solid var(--border); font-size:12px; cursor:pointer}
+  .gallery{display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px}
+  .gallery .gimg{aspect-ratio:3/4; border-radius:10px; background:#0f142a; border:1px dashed var(--border); display:grid; place-items:center; color:var(--muted); font-size:12px}
+  .close-x{position:absolute; top:12px; right:12px; background:#1c2341; border:1px solid var(--border); color:var(--text); padding:6px 8px; border-radius:8px; cursor:pointer}
+  /* Summon modal */
+  dialog{ border:none; padding:0; background:transparent}
+  .modal{
+    width:min(720px, 96vw);
+    background:var(--panel);
+    border:1px solid var(--border); border-radius:16px; padding:16px;
+    box-shadow:var(--shadow);
+  }
+  .reveal{
+    display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:10px;
+    margin-top:10px;
+  }
+  .note{font-size:12px; color:var(--muted)}
+  .rates{font-size:12px; color:#cbd1ee}
+  .divider{height:1px; background:var(--border); margin:10px 0}
+  .footer{display:flex; justify-content:flex-end; gap:8px; margin-top:8px}
+  /* rarity theme */
+  .r-F{--glow:var(--rare-F)} .r-E{--glow:var(--rare-E)} .r-D{--glow:var(--rare-D)}
+  .r-C{--glow:var(--rare-C)} .r-B{--glow:var(--rare-B)} .r-A{--glow:var(--rare-A)}
+  .r-S{--glow:var(--rare-S)} .r-SS{--glow:var(--rare-SS)} .r-SSS{--glow:var(--rare-SSS)}
+  .r-EX{--glow:var(--rare-EX)} .r-Ω{--glow:var(--rare-OMEGA)} .r-XΩ{--glow:var(--rare-XOMEGA)}
+  .r-∞{--glow:var(--rare-INF)}
+  .tiny{font-size:11px; color:var(--muted)}
+  .right{margin-left:auto}
+</style>
+</head>
+<body>
+<header>
+  <img class="logo" alt="logo" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='256' height='256' viewBox='0 0 256 256'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%237dc3ff'/><stop offset='1' stop-color='%23e45bff'/></linearGradient></defs><circle cx='128' cy='128' r='120' fill='url(%23g)'/><path d='M70 160c40-10 66-44 86-80 10 18 18 38 28 58 10 20 22 40 2 58-18 16-44 8-62-10-18-18-36-42-54-26z' fill='%23fff' fill-opacity='.8'/></svg>">
+  <div>
+    <h1>Eternal Archive: Resonance Nexus</h1>
+    <div class="tagline">Summon memories. Forge bonds. Curate your Archive.</div>
+  </div>
+  <div class="spacer"></div>
+  <div class="pill">Prototype UI</div>
+</header>
+
+<main>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="group">
+      <h3>Search</h3>
+      <input id="search" type="search" placeholder="Search name or tag…" />
+    </div>
+    <div class="group">
+      <h3>Rarity</h3>
+      <div class="row" id="rarityRow"></div>
+    </div>
+    <div class="group">
+      <h3>Class</h3>
+      <div class="row" id="classRow"></div>
+    </div>
+    <div class="group">
+      <h3>Element</h3>
+      <div class="row" id="elementRow"></div>
+    </div>
+    <div class="group">
+      <h3>Tags</h3>
+      <div class="row" id="tagRow"></div>
+    </div>
+    <div class="group">
+      <h3>Sort</h3>
+      <div class="row">
+        <select id="sort" style="width:100%;background:var(--panel-2);color:var(--text);border:1px solid var(--border);padding:8px;border-radius:10px">
+          <option value="rarity_desc">Rarity (High → Low)</option>
+          <option value="rarity_asc">Rarity (Low → High)</option>
+          <option value="name_asc">Name (A→Z)</option>
+          <option value="name_desc">Name (Z→A)</option>
+          <option value="bond_desc">Bond (High → Low)</option>
+        </select>
+      </div>
+    </div>
+    <div class="group">
+      <h3>Collection</h3>
+      <div class="row">
+        <label class="chip"><input id="onlyOwned" type="checkbox" /> Only Owned</label>
+        <label class="chip"><input id="onlyFav" type="checkbox" /> Favorites</label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <section>
+    <div class="controls">
+      <button class="btn primary" id="openSummon">Summon (x10)</button>
+      <button class="btn" id="clearCollection">Reset Collection</button>
+      <div class="counter">Pity (SSS+): <span id="pity">0</span> / 100 • Ω Pity: <span id="opity">0</span> / 150</div>
+      <div class="right tiny">Demo rates & logic are simplified for this prototype.</div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+
+<!-- Profile Drawer -->
+<div class="drawer" id="drawer">
+  <div class="sheet">
+    <button class="close-x" id="closeDrawer">Close</button>
+    <div class="hero">
+      <div class="big">
+        <div id="bigPortrait" class="portrait"><span>—</span><div id="bigRarity" class="rarity"></div></div>
+      </div>
+      <div>
+        <h2 id="pName">—</h2>
+        <div class="field">
+          <span class="badge" id="pRarity">—</span>
+          <span class="badge" id="pClass">—</span>
+          <span class="badge" id="pElement">—</span>
+        </div>
+        <div class="kv">Tags: <span id="pTags">—</span></div>
+        <div class="kv">Bond: <span id="pBond">0</span>/10</div>
+        <p class="bio" id="pBio">—</p>
+        <div class="tabs">
+          <button class="tab" id="btnBond">Increase Bond +1</button>
+          <button class="tab" id="btnFavorite">Toggle Favorite</button>
+        </div>
+        <div class="divider"></div>
+        <div class="rates"><strong>Skills</strong></div>
+        <div class="kv" id="pSkills">—</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="rates"><strong>Art Gallery</strong></div>
+    <div class="gallery" id="gallery"></div>
+  </div>
+</div>
+
+<!-- Summon Modal -->
+<dialog id="summonDialog">
+  <div class="modal">
+    <div style="display:flex; align-items:center; gap:10px">
+      <div class="badge">Event Banner</div>
+      <h3 style="margin:0">Crimson Choir: Liora’s Resonance</h3>
+      <div class="right note">Featured Ω: Liora Aetherveil (0.7%)</div>
+    </div>
+    <div class="note">Rates (simplified): F–C 65% • B–A 25% • S–SSS 9% • EX/Ω/∞ 1% • Pity: SSS+ at 100, Ω at 150</div>
+    <div class="divider"></div>
+    <div class="reveal" id="reveal"></div>
+    <div class="footer">
+      <button class="btn" id="closeSummon">Close</button>
+      <button class="btn primary" id="roll10">Reveal x10</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+// ---------------------- Data ----------------------
+const RARITY_ORDER = ["F","E","D","C","B","A","S","SS","SSS","EX","Ω","XΩ","∞"];
+const RARITY_SCORE = Object.fromEntries(RARITY_ORDER.map((r,i)=>[r, i]));
+const CLASSES = ["Arcanist","Knight","Ranger","Vanguard","Healer","Assassin","Support"];
+const ELEMENTS = ["Radiance","Aether","Flame","Frost","Gale","Terra","Umbral"];
+const TAGS = ["Foxgirl","Demon","Scholar","Royal","Drifter","Healer","Tank","Sniper","Mage","Beastkin"];
+
+// Demo characters
+const POOL = [
+  {id:"liora", name:"Liora Aetherveil", rarity:"Ω", class:"Arcanist", element:"Radiance", tags:["Scholar","Mage"], bio:"A melancholic cantor of the Astral Choir who speaks in constellations.", skills:["Passive: Light Unending — +10% mana regen","Ultimate: Aethernova — AoE Light scaling with Bond"], featured:true},
+  {id:"serin", name:"Serin Veyra", rarity:"SSS", class:"Ranger", element:"Gale", tags:["Drifter","Sniper"], bio:"A wandering sharpshooter who reads the wind like scripture.", skills:["Passive: Wind’s Poise — +Crit rate","Ultimate: Skyline Barrage — multi-hit"]},
+  {id:"mira", name:"Mira Kyn", rarity:"A", class:"Healer", element:"Frost", tags:["Healer","Scholar"], bio:"Clinic-on-wheels and chronic tea-spiller.", skills:["Passive: Snowmend — Heal over time","Ultimate: Winter’s Grace — team cleanse"]},
+  {id:"celin", name:"Celin Tora", rarity:"B", class:"Vanguard", element:"Terra", tags:["Tank","Royal"], bio:"Stonewall captain who never breaks formation.", skills:["Passive: Bulwark — +DEF","Ultimate: Earthshatter — taunt + shield"]},
+  {id:"rin", name:"Rin Kisaragi", rarity:"S", class:"Assassin", element:"Umbral", tags:["Demon"], bio:"Smile like a knife; disappears with the moon.", skills:["Passive: Veilstep — +Evasion","Ultimate: Requiem — executes low HP foes"]},
+  {id:"akari", name:"Akari Sunfell", rarity:"SS", class:"Support", element:"Flame", tags:["Foxgirl","Mage"], bio:"A kitsune archivist who misfiles suns for fun.", skills:["Passive: Ember Script — amplify burns","Ultimate: Foxfire Canticle — ATK up"]},
+  {id:"toma", name:"Toma Verd", rarity:"C", class:"Knight", element:"Terra", tags:["Tank"], bio:"New recruit. Shiny armor. Shakier knees.", skills:["Passive: Guard — +DEF vs bosses","Ultimate: Rockbreak"]},
+  {id:"navi", name:"Navii Orinne", rarity:"E", class:"Support", element:"Aether", tags:["Scholar"], bio:"Archivist-intern with boundless curiosity.", skills:["Passive: Notetake — +SP gain","Ultimate: Cite Source — debuff"]},
+  {id:"zara", name:"Zara Nyx", rarity:"EX", class:"Arcanist", element:"Umbral", tags:["Mage"], bio:"Shadow academic who grades on a curved dagger.", skills:["Passive: Black Thesis — DoT amp","Ultimate: Obsidian Thesis"]},
+  {id:"kael", name:"Kael Dravus", rarity:"D", class:"Ranger", element:"Flame", tags:["Sniper"], bio:"Sparks fly; so do arrows.", skills:["Passive: Kindling — first-hit burn","Ultimate: Ember Volley"]},
+  {id:"iona", name:"Iona Vale", rarity:"F", class:"Support", element:"Radiance", tags:["Healer"], bio:"Warm tea, warmer smile.", skills:["Passive: Comfort — tiny HoT","Ultimate: Light Tap"]},
+  {id:"nova", name:"Nova Axiome", rarity:"∞", class:"Arcanist", element:"Aether", tags:["Mage","Royal"], bio:"Singularity in a school uniform. Do not approach.", skills:["Passive: Event Horizon — bends buffs","Ultimate: Big Crunch — resets time (demo text)"]},
+  {id:"xomega", name:"Kera X-Null", rarity:"XΩ", class:"Assassin", element:"Gale", tags:["Drifter"], bio:"A glitch in destiny, walking backward through storms.", skills:["Passive: Paradox — random dodge","Ultimate: Unwrite — remove buffs"]},
+];
+
+// ---------------------- State ----------------------
+const state = {
+  search:"",
+  rarity:new Set(),
+  class:new Set(),
+  element:new Set(),
+  tags:new Set(),
+  sort:"rarity_desc",
+  onlyOwned:false,
+  onlyFav:false,
+  collection: JSON.parse(localStorage.getItem("ea_collection")||"{}"),
+  bond: JSON.parse(localStorage.getItem("ea_bond")||"{}"),
+  fav: new Set(JSON.parse(localStorage.getItem("ea_fav")||"[]")),
+  pity: +localStorage.getItem("ea_pity")||0,       // SSS+ pity (100)
+  opity: +localStorage.getItem("ea_opity")||0      // Ω pity (150)
+};
+
+// ---------------------- UI Builders ----------------------
+function chip(label, group, value){
+  const el = document.createElement("button");
+  el.className="chip";
+  el.textContent = label;
+  el.dataset.active="false";
+  el.onclick = ()=>{
+    const set = state[group];
+    if(set.has(value)) set.delete(value); else set.add(value);
+    el.dataset.active = set.has(value);
+    render();
+  };
+  return el;
+}
+function buildFilters(){
+  // rarity
+  const rr = document.getElementById("rarityRow");
+  rr.innerHTML="";
+  RARITY_ORDER.forEach(r=>{
+    const c = chip(r, "rarity", r);
+    c.style.borderColor="var(--border)";
+    c.style.boxShadow = `0 0 10px color-mix(in oklab, var(--rare-${classNameForRarity(r)}) 40%, transparent)`;
+    rr.appendChild(c);
+  });
+  // class
+  const cr = document.getElementById("classRow");
+  cr.innerHTML="";
+  CLASSES.forEach(k=>cr.appendChild(chip(k,"class",k)));
+  // element
+  const er = document.getElementById("elementRow");
+  er.innerHTML="";
+  ELEMENTS.forEach(e=>er.appendChild(chip(e,"element",e)));
+  // tags
+  const tr = document.getElementById("tagRow");
+  tr.innerHTML="";
+  TAGS.forEach(t=>tr.appendChild(chip(t,"tags",t)));
+}
+
+function classNameForRarity(r){
+  return ({
+    "F":"F","E":"E","D":"D","C":"C","B":"B","A":"A","S":"S","SS":"SS","SSS":"SSS",
+    "EX":"EX","Ω":"OMEGA","XΩ":"XOMEGA","∞":"INF"
+  })[r];
+}
+
+function portraitSVG(name){
+  return `<svg viewBox="0 0 200 260" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#7dc3ff"/><stop offset="1" stop-color="#e45bff"/>
+      </linearGradient>
+      <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="4" result="b"/>
+        <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <rect x="0" y="0" width="200" height="260" fill="#0e1326"/>
+    <circle cx="100" cy="120" r="74" fill="url(#g)" opacity=".25"/>
+    <path d="M70 170c28-8 52-34 68-66 8 16 16 34 24 52 8 18 18 36 2 50-14 12-36 8-50-6-14-12-30-30-44-30z" fill="#fff" opacity=".8" filter="url(#glow)"/>
+    <text x="100" y="238" fill="#d7e1ff" font-family="ui-sans-serif,Segoe UI,Roboto" font-size="14" text-anchor="middle">${name}</text>
+  </svg>`;
+}
+
+// ---------------------- Render Grid ----------------------
+function render(){
+  // Controls labels active state
+  document.getElementById("pity").textContent = state.pity;
+  document.getElementById("opity").textContent = state.opity;
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+
+  // filtering
+  let list = POOL.slice();
+  list = list.filter(c=>{
+    if(state.search){
+      const s = state.search.toLowerCase();
+      const hit = c.name.toLowerCase().includes(s) || (c.tags||[]).some(t=>t.toLowerCase().includes(s));
+      if(!hit) return false;
+    }
+    if(state.rarity.size && !state.rarity.has(c.rarity)) return false;
+    if(state.class.size && !state.class.has(c.class)) return false;
+    if(state.element.size && !state.element.has(c.element)) return false;
+    if(state.tags.size && ![...state.tags].every(t=>c.tags?.includes(t))) return false;
+    if(state.onlyOwned && !state.collection[c.id]) return false;
+    if(state.onlyFav && !state.fav.has(c.id)) return false;
+    return true;
+  });
+
+  // sort
+  list.sort((a,b)=>{
+    switch(state.sort){
+      case "rarity_desc": return RARITY_SCORE[b.rarity]-RARITY_SCORE[a.rarity] || a.name.localeCompare(b.name);
+      case "rarity_asc": return RARITY_SCORE[a.rarity]-RARITY_SCORE[b.rarity] || a.name.localeCompare(b.name);
+      case "name_asc": return a.name.localeCompare(b.name);
+      case "name_desc": return b.name.localeCompare(a.name);
+      case "bond_desc": return (state.bond[b.id]||0)-(state.bond[a.id]||0) || a.name.localeCompare(b.name);
+    }
+  });
+
+  // build cards
+  for(const c of list){
+    const card = document.createElement("div");
+    card.className="card";
+    card.onclick=()=>openProfile(c.id);
+
+    const fav = document.createElement("div");
+    fav.className="fav";
+    fav.innerHTML = state.fav.has(c.id) ? "★" : "☆";
+    fav.title = "Favorite";
+    fav.onclick = (e)=>{ e.stopPropagation(); toggleFavorite(c.id); render(); };
+    card.appendChild(fav);
+
+    const p = document.createElement("div");
+    p.className="portrait";
+    p.innerHTML = portraitSVG(c.name.split(" ")[0]);
+    const r = document.createElement("div");
+    r.className = "rarity r-"+c.rarity;
+    p.appendChild(r);
+    card.appendChild(p);
+
+    const title = document.createElement("div");
+    title.className="title";
+    title.textContent = c.name;
+    card.appendChild(title);
+
+    const meta = document.createElement("div");
+    meta.className="meta";
+    meta.innerHTML = `<span class="badge">${c.rarity}</span><span class="badge">${c.class}</span><span class="badge">${c.element}</span>`;
+    card.appendChild(meta);
+
+    const tiny = document.createElement("div");
+    tiny.className="tiny";
+    tiny.textContent = (state.collection[c.id] ? "Owned" : "Unowned") + " • Bond " + (state.bond[c.id]||0);
+    card.appendChild(tiny);
+
+    grid.appendChild(card);
+  }
+}
+
+// ---------------------- Profile Drawer ----------------------
+let currentId = null;
+function openProfile(id){
+  currentId = id;
+  const c = POOL.find(x=>x.id===id);
+  document.getElementById("pName").textContent = c.name;
+  document.getElementById("pRarity").textContent = c.rarity;
+  document.getElementById("pClass").textContent = c.class;
+  document.getElementById("pElement").textContent = c.element;
+  document.getElementById("pTags").textContent = c.tags?.join(", ") || "—";
+  document.getElementById("pBond").textContent = state.bond[id]||0;
+  document.getElementById("pBio").textContent = c.bio;
+  document.getElementById("pSkills").textContent = c.skills?.join(" • ");
+  document.getElementById("bigPortrait").innerHTML = portraitSVG(c.name);
+  const br = document.getElementById("bigRarity");
+  br.className="rarity r-"+c.rarity;
+  buildGallery(id);
+  document.getElementById("drawer").setAttribute("open","");
+}
+function buildGallery(id){
+  const g = document.getElementById("gallery");
+  g.innerHTML="";
+  // 4 demo slots, 2 locked until Bond >= 5 / 10
+  const b = state.bond[id]||0;
+  const items = [
+    {label:"Default Art", locked:false},
+    {label:"Ascension I", locked:b<3},
+    {label:"Ascension II", locked:b<5},
+    {label:"Bond 10 CG", locked:b<10}
+  ];
+  items.forEach(it=>{
+    const el = document.createElement("div");
+    el.className="gimg";
+    el.textContent = it.locked ? `Locked (${it.label})` : it.label;
+    el.style.opacity = it.locked ? .5 : 1;
+    g.appendChild(el);
+  });
+}
+document.getElementById("closeDrawer").onclick = ()=>document.getElementById("drawer").removeAttribute("open");
+document.getElementById("btnBond").onclick = ()=>{
+  if(!currentId) return;
+  state.bond[currentId] = Math.min(10, (state.bond[currentId]||0)+1);
+  localStorage.setItem("ea_bond", JSON.stringify(state.bond));
+  openProfile(currentId);
+  render();
+};
+document.getElementById("btnFavorite").onclick = ()=>{
+  if(!currentId) return;
+  toggleFavorite(currentId);
+  openProfile(currentId);
+  render();
+};
+function toggleFavorite(id){
+  if(state.fav.has(id)) state.fav.delete(id); else state.fav.add(id);
+  localStorage.setItem("ea_fav", JSON.stringify([...state.fav]));
+}
+
+// ---------------------- Filtering controls ----------------------
+document.getElementById("search").addEventListener("input", e=>{ state.search = e.target.value; render(); });
+document.getElementById("sort").addEventListener("change", e=>{ state.sort = e.target.value; render(); });
+document.getElementById("onlyOwned").addEventListener("change", e=>{ state.onlyOwned = e.target.checked; render(); });
+document.getElementById("onlyFav").addEventListener("change", e=>{ state.onlyFav = e.target.checked; render(); });
+
+// ---------------------- Summon Logic ----------------------
+const summonDialog = document.getElementById("summonDialog");
+document.getElementById("openSummon").onclick = ()=>summonDialog.showModal();
+document.getElementById("closeSummon").onclick = ()=>summonDialog.close();
+
+document.getElementById("roll10").onclick = ()=>{
+  const results = [];
+  for(let i=0;i<10;i++) results.push(pullOne());
+  const wrap = document.getElementById("reveal");
+  wrap.innerHTML="";
+  results.forEach(r=>{
+    const c = document.createElement("div");
+    c.className="card";
+    const p = document.createElement("div");
+    p.className="portrait";
+    p.innerHTML = portraitSVG(r.name.split(" ")[0]);
+    const rr = document.createElement("div");
+    rr.className = "rarity r-"+r.rarity;
+    p.appendChild(rr);
+    c.appendChild(p);
+    const title = document.createElement("div");
+    title.className="title";
+    title.textContent = `${r.name} — ${r.rarity}`;
+    c.appendChild(title);
+    const meta = document.createElement("div");
+    meta.className="meta";
+    meta.innerHTML = `<span class="badge">${r.class}</span><span class="badge">${r.element}</span>`;
+    c.appendChild(meta);
+    wrap.appendChild(c);
+  });
+  render();
+};
+
+function pullOne(){
+  // Pity check
+  let rarity = null;
+  const sssThreshold = 100;
+  const omegaThreshold = 150;
+  state.pity++; state.opity++;
+  if(state.opity >= omegaThreshold){
+    rarity = "Ω";
+    state.opity = 0;
+    state.pity = 0; // also satisfies SSS+
+  }else if(state.pity >= sssThreshold){
+    rarity = "SSS";
+    state.pity = 0;
+  }else{
+    // Base rates
+    const roll = Math.random()*100;
+    if(roll < 65) rarity = pick(["F","E","D","C"], [20,20,15,10]); // sums 65 but only relative
+    else if(roll < 90) rarity = pick(["B","A"], [15,10]);
+    else if(roll < 99) rarity = pick(["S","SS","SSS"], [4,3,2]);
+    else rarity = pick(["EX","Ω","∞"], [0.3,0.5,0.2]); // totals 1%
+  }
+  // Featured Ω rate-up within Ω bucket
+  const candidates = POOL.filter(x=>x.rarity===rarity);
+  let pickId;
+  if(rarity==="Ω"){
+    const featured = candidates.filter(c=>c.featured);
+    const non = candidates.filter(c=>!c.featured);
+    pickId = Math.random() < 0.7 && featured.length ? featured[0].id : (non[0]?.id || featured[0].id);
+  }else{
+    pickId = candidates[Math.floor(Math.random()*candidates.length)].id;
+  }
+  // add to collection
+  state.collection[pickId] = (state.collection[pickId]||0)+1;
+  localStorage.setItem("ea_collection", JSON.stringify(state.collection));
+  localStorage.setItem("ea_pity", state.pity);
+  localStorage.setItem("ea_opity", state.opity);
+  document.getElementById("pity").textContent = state.pity;
+  document.getElementById("opity").textContent = state.opity;
+  return POOL.find(x=>x.id===pickId);
+}
+
+function pick(items, weights){
+  const total = weights.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for(let i=0;i<items.length;i++){
+    if((r-=weights[i])<=0) return items[i];
+  }
+  return items.at(-1);
+}
+
+// ---------------------- Setup ----------------------
+buildFilters();
+render();
+
+// Reset collection
+document.getElementById("clearCollection").onclick = ()=>{
+  if(!confirm("Reset collection, bond, favorites and pity?")) return;
+  state.collection = {}; state.bond={}; state.fav=new Set(); state.pity=0; state.opity=0;
+  localStorage.removeItem("ea_collection");
+  localStorage.removeItem("ea_bond");
+  localStorage.removeItem("ea_fav");
+  localStorage.removeItem("ea_pity");
+  localStorage.removeItem("ea_opity");
+  render();
+};
+
+</script>
+</body>
+</html>

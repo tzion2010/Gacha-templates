@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Ultra-Editable Gacha v3 (Leveling + Ascension)</title>
+<style>
+  :root{
+    --bg:#0e1022; --card:#15183a; --text:#eef1ff; --muted:#9aa4cf;
+    --accent:#6c8cff; --good:#66e2a4; --warn:#ffd166; --bad:#ff6b6b;
+    --line:#262a54;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+  header{ position:sticky; top:0; z-index:5; background:rgba(14,16,34,.92); backdrop-filter: blur(6px);
+    border-bottom:1px solid var(--line); }
+  .wrap{ max-width: 840px; margin:0 auto; padding:12px 14px; }
+  h1{ margin:4px 0 8px; font-size:22px; }
+  h2{ margin:12px 0 8px; font-size:18px; }
+  h3{ margin:10px 0 6px; font-size:15px; color:var(--muted); }
+  p{ color:var(--muted); }
+  .tabs{ display:flex; gap:8px; flex-wrap:wrap; }
+  .tab-btn{ border:1px solid var(--line); background:#121433; color:var(--text); padding:8px 10px; border-radius:10px; cursor:pointer; }
+  .tab-btn.active{ outline:2px solid var(--accent); }
+  .panel{ background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+  input, select, textarea, button{ background:#0c1030; color:var(--text); border:1px solid #2a2f57;
+    padding:10px 12px; border-radius:10px; font-size:14px; width:100%; }
+  textarea{ min-height:72px; resize:vertical; }
+  .row{ display:flex; gap:8px; align-items:center; }
+  .row.wrap{ flex-wrap:wrap; }
+  .btn{ background: linear-gradient(135deg,#4f6bff,#9a63ff); border:none; color:#fff; cursor:pointer; font-weight:600; }
+  .btn.soft{ background:#171a44; border:1px solid var(--line); }
+  .btn.warn{ background: linear-gradient(135deg,#ffd166,#ff9d66); color:#171717; }
+  .btn.danger{ background: linear-gradient(135deg,#ff6b6b,#f06595); }
+  .pill{ font-size:12px; padding:4px 8px; border:1px solid var(--line); border-radius:999px; color:var(--muted); }
+  .hr{ height:1px; background:var(--line); border:none; margin:10px 0; }
+
+  .card{ display:flex; gap:10px; background:#0b0f2a; border:1px solid var(--line); border-radius:12px; padding:10px; align-items:center; }
+  .card img{ width:70px; height:70px; border-radius:10px; object-fit:cover; border:2px solid #2a2f53; cursor:pointer; }
+  .meta{ flex:1; }
+  .small{ color:var(--muted); font-size:12px; }
+
+  .stat-grid{ display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap:6px; }
+  .stat-pill{ background:#0d1130; border:1px solid #2a2f53; border-radius:10px; padding:8px; text-align:center; }
+  .stat-pill b{ display:block; font-size:11px; color:var(--muted); }
+  .stat-pill span{ font-size:15px; }
+
+  .rarity-chip{ display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border-radius:999px; color:white;
+    border:1px solid rgba(255,255,255,.24); font-weight:600; letter-spacing:.2px; filter:saturate(1.1); }
+
+  .log{ max-height:220px; overflow:auto; background:#0b0f1f; border:1px dashed #2b3153; border-radius:12px; padding:10px; font-size:13px; }
+  .log p{ margin:8px 0; }
+  .log img{ width:20px; height:20px; border-radius:4px; vertical-align:middle; margin-right:6px; object-fit:cover; }
+
+  /* Modal */
+  .modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.65); display:flex; align-items:center; justify-content:center; z-index: 10; }
+  .modal{ background:#0b0f28; border:1px solid #2a2f53; border-radius:16px; padding:10px; max-width:94vw; max-height:92vh; }
+  .modal img{ max-width:92vw; max-height:80vh; border-radius:12px; display:block; }
+  .modal .row{ justify-content:space-between; }
+
+  /* Mobile: single column always */
+  .stack > * { margin-bottom:10px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="row wrap" style="justify-content:space-between;">
+      <h1>Ultra-Editable Gacha v3</h1>
+      <div class="row wrap" style="gap:6px; justify-content:flex-end; min-width:240px;">
+        <span id="coinsView" class="pill">Coins: 0</span>
+        <span id="gemsView" class="pill">Gems: 0</span>
+        <button class="btn soft" id="grantCoins">+1,000 Coins</button>
+        <button class="btn soft" id="grantGems">+500 Gems</button>
+        <button class="btn soft" id="exportBtn">Export</button>
+        <input type="file" id="importFile" accept="application/json" class="hidden"/>
+        <button class="btn soft" id="importBtn">Import</button>
+        <button class="btn danger" id="resetBtn">Reset</button>
+      </div>
+    </div>
+
+    <div class="row wrap" style="gap:8px; margin-top:6px;">
+      <div style="flex:1 1 120px;">
+        <label>Pull Currency
+          <select id="pullCurrency">
+            <option value="coins">Coins</option>
+            <option value="gems">Gems</option>
+          </select>
+        </label>
+      </div>
+      <div style="flex:1 1 120px;">
+        <label>Pull Cost (Coins) <input id="pullCostCoins" type="number" min="0" value="100"></label>
+      </div>
+      <div style="flex:1 1 120px;">
+        <label>Pull Cost (Gems) <input id="pullCostGems" type="number" min="0" value="10"></label>
+      </div>
+      <div style="flex:1 1 120px;">
+        <label>10x Discount (%) <input id="tenxDiscount" type="number" min="0" max="100" value="10"></label>
+      </div>
+      <button class="btn" id="saveEconomy" style="flex:0 0 140px;">Save Economy</button>
+    </div>
+
+    <div class="row wrap" style="gap:8px; margin-top:6px;">
+      <div style="flex:1 1 120px;">
+        <label>Level Cap <input id="levelCap" type="number" min="1" value="100"></label>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>EXP Base <input id="expBase" type="number" min="1" value="100"></label>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>EXP Growth per Lv <input id="expGrowth" type="number" min="0" value="25"></label>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>EXP per Coin <input id="expPerCoin" type="number" min="0" value="1"></label>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>EXP per Gem <input id="expPerGem" type="number" min="0" value="20"></label>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>EXP per Merge <input id="mergeExp" type="number" min="0" value="120"></label>
+      </div>
+      <div style="flex:1 1 160px;">
+        <label>Growth/Level (+stat) <input id="growthPerLevel" type="number" min="0" value="1"></label>
+      </div>
+      <button class="btn" id="saveProgression" style="flex:0 0 170px;">Save Progression</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="play">Play</button>
+    <button class="tab-btn" data-tab="shop">Shop</button>
+    <button class="tab-btn" data-tab="manager">Manager</button>
+    <button class="tab-btn" data-tab="rarities">Rarities</button>
+    <button class="tab-btn" data-tab="inventory">Inventory</button>
+  </div>
+
+  <!-- PLAY -->
+  <div class="panel" data-tabcontent="play">
+    <div class="stack">
+      <div class="row wrap">
+        <button class="btn" id="pull1" style="flex:1;">Pull x1</button>
+        <button class="btn" id="pull10" style="flex:1;">Pull x10</button>
+      </div>
+      <div class="row wrap">
+        <label style="flex:1;">Filter Rarity
+          <select id="bannerRarityFilter"><option value="all">All rarities</option></select>
+        </label>
+        <label style="flex:1;">Pity (min rarity)
+          <select id="pityMin"><option value="">None</option></select>
+        </label>
+        <label style="flex:1;">Tags (any) <input id="playTagFilter" placeholder="fire, support"></label>
+        <label style="flex:1;">World <input id="playWorldFilter" placeholder="Terra"></label>
+      </div>
+      <div id="results"></div>
+      <div class="panel">
+        <div class="row" style="justify-content:space-between;">
+          <h3>Activity Log</h3>
+          <button class="btn soft" id="clearLog" style="flex:0 0 110px;">Clear</button>
+        </div>
+        <div id="log" class="log"></div>
+        <div class="hr"></div>
+        <details><summary>Drop Table (live)</summary><div id="dropTable"></div></details>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHOP -->
+  <div class="panel hidden" data-tabcontent="shop">
+    <div class="stack">
+      <h2>Shop Packs</h2>
+      <div id="packList" class="stack"></div>
+      <div class="hr"></div>
+      <h3>Add / Edit Pack</h3>
+      <label>Name <input id="pName" placeholder="e.g., Flame Banner"></label>
+      <label>Description <textarea id="pDesc" placeholder="Short description"></textarea></label>
+      <div class="row wrap">
+        <label style="flex:1;">Tags (ANY) <input id="pTags" placeholder="fire, support"></label>
+        <label style="flex:1;">World <input id="pWorld" placeholder="Terra"></label>
+      </div>
+      <div class="row wrap">
+        <label style="flex:1;">Rarity <select id="pRarity"><option value="">Any</option></select></label>
+        <label style="flex:1;">Pity Min <select id="pPity"><option value="">None</option></select></label>
+      </div>
+      <div class="row wrap">
+        <label style="flex:1;">Price (Coins) <input id="pPriceCoins" type="number" min="0" value="1000"></label>
+        <label style="flex:1;">Price (Gems) <input id="pPriceGems" type="number" min="0" value="0"></label>
+        <label style="flex:1;">Pulls <input id="pPulls" type="number" min="1" value="10"></label>
+      </div>
+      <div class="row wrap">
+        <button class="btn soft" id="savePack" style="flex:1;">Save Pack</button>
+        <button class="btn soft" id="clearPack" style="flex:1;">Clear</button>
+      </div>
+      <p class="small">Filters: (tags ANY) AND (world if set) AND (rarity if set). Prices can be set in either currency.</p>
+    </div>
+  </div>
+
+  <!-- MANAGER -->
+  <div class="panel hidden" data-tabcontent="manager">
+    <div class="stack">
+      <h2>Add / Edit Character</h2>
+      <label>Name <input id="cName" placeholder="e.g., Emberblade"/></label>
+      <label>Image URL <input id="cImg" placeholder="https://..."/></label>
+      <div class="row wrap">
+        <label style="flex:1;">Rarity <select id="cRarity"></select></label>
+        <label style="flex:1;">Character Weight <input id="cWeight" type="number" min="1" value="1"/></label>
+      </div>
+      <div class="row wrap">
+        <label style="flex:1;">Tags (comma) <input id="cTags" placeholder="fire, support"></label>
+        <label style="flex:1;">World <input id="cWorld" placeholder="Terra"></label>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-pill"><b>STR</b><span><input type="number" id="statSTR" value="10"></span></div>
+        <div class="stat-pill"><b>DEX</b><span><input type="number" id="statDEX" value="10"></span></div>
+        <div class="stat-pill"><b>CON</b><span><input type="number" id="statCON" value="10"></span></div>
+        <div class="stat-pill"><b>INT</b><span><input type="number" id="statINT" value="10"></span></div>
+        <div class="stat-pill"><b>WIS</b><span><input type="number" id="statWIS" value="10"></span></div>
+        <div class="stat-pill"><b>CHA</b><span><input type="number" id="statCHA" value="10"></span></div>
+      </div>
+      <div class="row wrap">
+        <button class="btn soft" id="rollStats" style="flex:1;">Auto-Roll DnD (3d6)</button>
+        <button class="btn" id="saveChar" style="flex:1;">Save Character</button>
+      </div>
+
+      <div class="hr"></div>
+      <div class="row wrap" style="gap:6px;">
+        <input id="mSearch" placeholder="Search name" style="flex:2;">
+        <input id="mTag" placeholder="tag" style="flex:1;">
+        <input id="mWorld" placeholder="world" style="flex:1;">
+        <select id="mRarity" style="flex:1;"><option value="">Any Rarity</option></select>
+        <button class="btn soft" id="mClear" style="flex:0 0 110px;">Clear</button>
+      </div>
+      <div id="charList" class="stack"></div>
+    </div>
+  </div>
+
+  <!-- RARITIES -->
+  <div class="panel hidden" data-tabcontent="rarities">
+    <div class="stack">
+      <h2>Rarities (13 Tiers)</h2>
+      <div id="rarityList" class="stack"></div>
+      <div class="row wrap">
+        <button class="btn" id="saveRarities" style="flex:1;">Save Rarities</button>
+        <button class="btn soft" id="rebalanceWeights" style="flex:1;">Normalize Weights</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INVENTORY -->
+  <div class="panel hidden" data-tabcontent="inventory">
+    <div class="stack">
+      <div class="row wrap" style="gap:6px;">
+        <input id="iSearch" placeholder="Search name" style="flex:2;">
+        <input id="iTag" placeholder="tag" style="flex:1;">
+        <input id="iWorld" placeholder="world" style="flex:1;">
+        <select id="iRarity" style="flex:1;"><option value="">Any Rarity</option></select>
+        <button class="btn soft" id="sortByRarity" style="flex:1;">Sort by Rarity</button>
+        <button class="btn soft" id="sortByName" style="flex:1;">Sort by Name</button>
+      </div>
+      <div id="inventoryList" class="stack"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal root -->
+<div id="modalRoot" class="hidden"></div>
+
+<script>
+(function(){
+  // -------- Defaults: 13-tier rarities --------
+  const defaultRarities = [
+    { tier:"T1", grade:"F",  id:"common",       name:"Common",       concept:"Has no notable skills or powers.", gradient:"linear-gradient(135deg,#596a83,#8ea1b7)", weight: 400 },
+    { tier:"T2", grade:"E",  id:"uncommon",     name:"Uncommon",     concept:"Possesses a useful, real-world skill.", gradient:"linear-gradient(135deg,#6dd5fa,#2980b9)", weight: 260 },
+    { tier:"T3", grade:"D",  id:"rare",         name:"Rare",         concept:"Peak human ability / latent potential.", gradient:"linear-gradient(135deg,#1e3c72,#2a5298)", weight: 150 },
+    { tier:"T4", grade:"C",  id:"epic",         name:"Epic",         concept:"First step beyond human limits; minor supernatural.", gradient:"linear-gradient(135deg,#ff9966,#ff5e62)", weight: 80 },
+    { tier:"T5", grade:"B",  id:"legendary",    name:"Legendary",    concept:"Defined, versatile superpower.", gradient:"linear-gradient(135deg,#f7971e,#ffd200)", weight: 50 },
+    { tier:"T6", grade:"A",  id:"mythic",       name:"Mythic",       concept:"Massive power; destroys city blocks.", gradient:"linear-gradient(135deg,#00c6ff,#0072ff)", weight: 30 },
+    { tier:"T7", grade:"S",  id:"supreme",      name:"Supreme",      concept:"Affects cities/nations; mythical scale.", gradient:"linear-gradient(135deg,#5f2c82,#49a09d)", weight: 15 },
+    { tier:"T8", grade:"SS", id:"arcane",       name:"Arcane",       concept:"Reality-bending 'hax' with continental reach.", gradient:"linear-gradient(135deg,#DA22FF,#9733EE)", weight: 7 },
+    { tier:"T9", grade:"SSS",id:"celestial",    name:"Celestial",    concept:"Astronomical scale; moons/planets.", gradient:"linear-gradient(135deg,#f953c6,#b91d73)", weight: 4 },
+    { tier:"T10",grade:"U",  id:"ultimate",     name:"Ultimate",     concept:"Warps systems / destroys stars.", gradient:"linear-gradient(135deg,#00F260,#0575E6)", weight: 2.5 },
+    { tier:"TX", grade:"X",  id:"godlike",      name:"Godlike",      concept:"Breaks rules of its own universe.", gradient:"linear-gradient(135deg,#FC466B,#3F5EFB)", weight: 1.5 },
+    { tier:"TY", grade:"Y",  id:"multiversal",  name:"Multiversal",  concept:"Exists across realities; beyond universal laws.", gradient:"linear-gradient(135deg,#ef32d9,#89fffd)", weight: 0.8 },
+    { tier:"TZ", grade:"Z",  id:"omnipotent",   name:"Omnipotent",   concept:"Absolute authority over all narratives.", gradient:"linear-gradient(135deg,#8360c3,#2ebf91)", weight: 0.2 },
+  ];
+
+  const defaultEconomy = {
+    coins: { name:"Coins", balance:0, pullCost:100 },
+    gems:  { name:"Gems",  balance:0, pullCost:10 },
+    pullCurrency: "gems",
+    tenxDiscount: 10
+  };
+
+  const defaultProgression = {
+    levelCap: 100,
+    expBase: 100,
+    expGrowth: 25,
+    expPerCoin: 1,
+    expPerGem: 20,
+    mergeExp: 120,
+    growthPerLevel: 1 // +stat per level (additive)
+  };
+
+  const defaultShop = [
+    { id:uid(), name:"Starter Pack", desc:"Beginner-friendly pool", tags:[], world:"", rarityId:"", pity:"", priceCoins:500, priceGems:0, pulls:5 },
+  ];
+
+  // Clean save key
+  function loadState(){ try{ const raw=localStorage.getItem("gacha_state_v3"); return raw? JSON.parse(raw): null; }catch(e){return null;} }
+  function saveState(){ localStorage.setItem("gacha_state_v3", JSON.stringify(state)); refreshUI(); }
+
+  let state = loadState() || {
+    rarities: defaultRarities,
+    economy: defaultEconomy,
+    progression: defaultProgression,
+    characters: [], // base defs
+    units: [],      // owned units: {uid, baseId, name, img, rarityId, tags, world, baseStats, level, exp, asc, createdAt}
+    shop: defaultShop
+  };
+
+  // ---------- Helpers ----------
+  const $=(s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  function uid(){ return Math.random().toString(36).slice(2,9); }
+  function getRarityById(id){ return state.rarities.find(r=>r.id===id); }
+  function rarityOrder(){ return state.rarities.map(r=>r.id); }
+  function ensureArrayTags(s){ return (s||"").split(",").map(x=>x.trim()).filter(Boolean); }
+  function addLog(html){ const p=document.createElement("p"); p.innerHTML=html; $("#log").prepend(p); }
+  function expToNext(level){ return Math.max(1, Math.floor(state.progression.expBase + (level-1)*state.progression.expGrowth)); }
+  function totalRarityWeight(){ return state.rarities.reduce((a,r)=>a+Number(r.weight||0),0); }
+
+  // Modal for images
+  function openModalImage(src, title=""){
+    const root=$("#modalRoot"); root.classList.remove("hidden");
+    root.innerHTML = `<div class="modal-backdrop" id="mbg"><div class="modal">
+      <div class="row"><b>${title||""}</b><button class="btn soft" id="closeModal">Close</button></div>
+      <img src="${src||''}" onerror="this.src=''; this.style.background='#10142a';"></div></div>`;
+    $("#closeModal").onclick=()=>root.classList.add("hidden");
+    $("#mbg").onclick=(e)=>{ if(e.target.id==="mbg") root.classList.add("hidden"); };
+  }
+
+  // ---------- RNG ----------
+  function rollRarity(minRarityId=null){
+    const minIndex = minRarityId ? state.rarities.findIndex(r=>r.id===minRarityId) : -1;
+    const weights = state.rarities.map((r,i)=>(minIndex>=0 && i<minIndex) ? 0 : Number(r.weight||0));
+    const sum = weights.reduce((a,b)=>a+b,0); let x=Math.random()*sum;
+    for(let i=0;i<weights.length;i++){ x-=weights[i]; if(x<=0) return state.rarities[i]; }
+    return state.rarities[state.rarities.length-1];
+  }
+
+  function pickCharacter(rarityId, predicate=null){
+    let pool = state.characters.filter(c=>c.rarityId===rarityId);
+    if(predicate) pool = pool.filter(predicate);
+    if(pool.length===0) return null;
+    const weights = pool.map(c=>Number(c.weight||1));
+    const sum = weights.reduce((a,b)=>a+b,0); let x=Math.random()*sum;
+    for(let i=0;i<pool.length;i++){ x-=weights[i]; if(x<=0) return pool[i]; }
+    return pool[pool.length-1];
+  }
+
+  // ---------- Gameplay ----------
+  function addUnitFromBase(base){
+    const unit = {
+      uid: uid(),
+      baseId: base.id,
+      name: base.name,
+      img: base.img || "",
+      rarityId: base.rarityId,
+      tags: base.tags || [],
+      world: base.world || "",
+      baseStats: base.stats || {STR:10,DEX:10,CON:10,INT:10,WIS:10,CHA:10},
+      level: 1,
+      exp: 0,
+      asc: 0,
+      createdAt: Date.now()
+    };
+    state.units.push(unit);
+    return unit;
+  }
+
+  function effectiveStat(base, level){
+    const add = Math.max(0, Math.floor((level-1)*state.progression.growthPerLevel));
+    return base + add;
+  }
+
+  function grantExp(unit, amount){
+    if(amount<=0) return;
+    const cap = state.progression.levelCap;
+    unit.exp += amount;
+    while(unit.level < cap && unit.exp >= expToNext(unit.level)){
+      unit.exp -= expToNext(unit.level);
+      unit.level += 1;
+    }
+    // If at cap, clamp exp
+    if(unit.level>=cap){ unit.level=cap; unit.exp = Math.min(unit.exp, expToNext(cap)); }
+  }
+
+  function ascend(unit){
+    const cap = state.progression.levelCap;
+    if(unit.level < cap) return alert("Reach level cap first.");
+    const order = rarityOrder();
+    const idx = order.indexOf(unit.rarityId);
+    if(idx < 0) return;
+    if(idx >= order.length-1) return alert("Already at max tier.");
+    unit.rarityId = order[idx+1];
+    unit.level = 1; unit.exp = 0; unit.asc += 1;
+    addLog(`Ascended <b>${unit.name}</b> to <b>${getRarityById(unit.rarityId).tier} ${getRarityById(unit.rarityId).name}</b>.`);
+  }
+
+  // ---------- Rendering ----------
+  function renderDropTable(){
+    const total = totalRarityWeight();
+    const container = $("#dropTable"); container.innerHTML="";
+    state.rarities.forEach(r=>{
+      const pct = total ? ((r.weight/total)*100).toFixed(3) : 0;
+      const row = document.createElement("div");
+      row.className="card";
+      const chip=document.createElement("span");
+      chip.className="rarity-chip"; chip.style.background=r.gradient; chip.textContent=`${r.tier} (${r.grade}) • ${r.name}`;
+      const meta=document.createElement("div"); meta.className="meta";
+      meta.innerHTML = `<div class="small">Weight: <b>${r.weight}</b> • Drop: <b>${pct}%</b> • Concept: ${r.concept}</div>`;
+      row.appendChild(chip); row.appendChild(meta);
+      container.appendChild(row);
+    });
+  }
+
+  function renderResults(cards){
+    const area=$("#results"); area.innerHTML="";
+    cards.forEach(u=>{
+      const r = getRarityById(u.rarityId) || {name:"?", gradient:"linear-gradient(45deg,#333,#111)", tier:""};
+      const s = u.baseStats;
+      const card=document.createElement("div"); card.className="panel";
+      card.innerHTML = `
+        <div class="card">
+          <img src="${u.img||''}" alt="" data-full="${u.img||''}">
+          <div class="meta">
+            <b>${u.name}</b>
+            <div class="small">World: ${u.world||"-"} • Tags: ${(u.tags||[]).join(", ")||"-"}</div>
+            <div class="small">Lv ${u.level} • EXP ${u.exp}/${expToNext(u.level)} • Asc ${u.asc}</div>
+          </div>
+          <div><span class="rarity-chip" style="background:${r.gradient}">${r.tier} ${r.name}</span></div>
+        </div>
+        <div class="stat-grid" style="margin-top:6px;">
+          ${["STR","DEX","CON","INT","WIS","CHA"].map(k=>`<div class="stat-pill"><b>${k}</b><span>${effectiveStat(s[k]||10, u.level)}</span></div>`).join("")}
+        </div>`;
+      card.querySelector("img").addEventListener("click", ()=> openModalImage(u.img, u.name));
+      area.appendChild(card);
+    });
+  }
+
+  function renderCharList(){
+    const host=$("#charList"); host.innerHTML="";
+    const q=($("#mSearch").value||"").toLowerCase();
+    const t=($("#mTag").value||"").trim().toLowerCase();
+    const w=($("#mWorld").value||"").trim().toLowerCase();
+    const rr=$("#mRarity").value||"";
+    const list = state.characters.filter(c=>{
+      if(q && !c.name.toLowerCase().includes(q)) return false;
+      if(t && !(c.tags||[]).map(x=>x.toLowerCase()).includes(t)) return false;
+      if(w && (c.world||"").toLowerCase()!==w) return false;
+      if(rr && c.rarityId!==rr) return false;
+      return true;
+    });
+    const byR={};
+    list.forEach(c=>{ (byR[c.rarityId]=byR[c.rarityId]||[]).push(c); });
+    state.rarities.forEach(r=>{
+      const group=document.createElement("div"); group.className="panel";
+      const header=document.createElement("div"); header.className="row"; header.style.justifyContent="space-between";
+      header.innerHTML = `<h3>${r.tier} ${r.name}</h3><span class="pill">In pool: ${(byR[r.id]||[]).length}</span>`;
+      group.appendChild(header);
+      (byR[r.id]||[]).forEach(c=>{
+        const row=document.createElement("div"); row.className="card";
+        row.innerHTML = `
+          <img src="${c.img||''}" alt="">
+          <div class="meta">
+            <b>${c.name}</b>
+            <div class="small">World: ${c.world||"-"} • Tags: ${(c.tags||[]).join(", ")||"-"} • Weight: ${c.weight}</div>
+          </div>
+          <div class="row" style="gap:6px; flex:0 0 190px;">
+            <button class="btn soft">Edit</button>
+            <button class="btn" title="Test Pull 1">Test</button>
+            <button class="btn danger">Delete</button>
+          </div>`;
+        row.querySelector("img").addEventListener("click", ()=> openModalImage(c.img,c.name));
+        const [editBtn,testBtn,delBtn] = row.querySelectorAll("button");
+        editBtn.onclick=()=>fillEditor(c);
+        testBtn.onclick=()=>{ const u=addUnitFromBase(c); saveState(); renderResults([u]); addLog(`Tested pull: <b>${c.name}</b>.`); };
+        delBtn.onclick=()=>{ if(confirm("Delete character?")){ state.characters = state.characters.filter(x=>x.id!==c.id); saveState(); renderCharList(); renderDropTable(); } };
+        group.appendChild(row);
+      });
+      host.appendChild(group);
+    });
+  }
+
+  function renderRaritiesEditor(){
+    const host=$("#rarityList"); host.innerHTML="";
+    state.rarities.forEach(r=>{
+      const row=document.createElement("div"); row.className="card"; row.style.alignItems="stretch";
+      const chip=document.createElement("span"); chip.className="rarity-chip"; chip.style.background=r.gradient; chip.textContent=`${r.tier} (${r.grade}) • ${r.name}`;
+      const meta=document.createElement("div"); meta.className="meta";
+      meta.innerHTML = `
+        <div class="row wrap">
+          <label style="flex:1;">Tier <input data-field="tier" data-id="${r.id}" value="${r.tier}"></label>
+          <label style="flex:1;">Grade <input data-field="grade" data-id="${r.id}" value="${r.grade}"></label>
+          <label style="flex:2;">Name <input data-field="name" data-id="${r.id}" value="${r.name}"></label>
+          <label style="flex:2;">ID <input data-field="id" data-id="${r.id}" value="${r.id}"></label>
+        </div>
+        <div class="row wrap">
+          <label style="flex:3;">Concept <input data-field="concept" data-id="${r.id}" value="${r.concept||''}"></label>
+          <label style="flex:3;">Gradient <input data-field="gradient" data-id="${r.id}" value="${r.gradient}"></label>
+          <label style="flex:2;">Weight <input type="number" step="0.1" data-field="weight" data-id="${r.id}" value="${r.weight}"></label>
+        </div>`;
+      row.appendChild(chip); row.appendChild(meta);
+      host.appendChild(row);
+    });
+  }
+
+  function refreshInventory(sortBy="rarity"){
+    const host=$("#inventoryList"); host.innerHTML="";
+    const q=($("#iSearch").value||"").toLowerCase();
+    const t=($("#iTag").value||"").trim().toLowerCase();
+    const w=($("#iWorld").value||"").trim().toLowerCase();
+    const rr=$("#iRarity").value||"";
+    const order=rarityOrder();
+
+    const list = state.units.filter(u=>{
+      if(q && !u.name.toLowerCase().includes(q)) return false;
+      if(t && !(u.tags||[]).map(x=>x.toLowerCase()).includes(t)) return false;
+      if(w && (u.world||"").toLowerCase()!==w) return false;
+      if(rr && u.rarityId!==rr) return false;
+      return true;
+    });
+
+    if(sortBy==="rarity"){ list.sort((a,b)=> order.indexOf(a.rarityId)-order.indexOf(b.rarityId) || a.name.localeCompare(b.name)); }
+    else if(sortBy==="name"){ list.sort((a,b)=> a.name.localeCompare(b.name)); }
+
+    list.forEach(u=>{
+      const r=getRarityById(u.rarityId);
+      const s=u.baseStats;
+      const row=document.createElement("div"); row.className="panel";
+      row.innerHTML = `
+        <div class="card">
+          <img src="${u.img||''}" alt="">
+          <div class="meta">
+            <b>${u.name}</b>
+            <div class="small">${r? (r.tier+" "+r.name): "?"} • World: ${u.world||"-"} • Tags: ${(u.tags||[]).join(", ")||"-"}</div>
+            <div class="small">Lv ${u.level} • EXP ${u.exp}/${expToNext(u.level)} • Asc ${u.asc}</div>
+          </div>
+          <div><span class="rarity-chip" style="background:${r?.gradient||'linear-gradient(45deg,#333,#111)'}">Unit</span></div>
+        </div>
+        <div class="stat-grid" style="margin-top:6px;">
+          ${["STR","DEX","CON","INT","WIS","CHA"].map(k=>`<div class="stat-pill"><b>${k}</b><span>${effectiveStat(s[k]||10, u.level)}</span></div>`).join("")}
+        </div>
+        <div class="row wrap" style="margin-top:8px;">
+          <div class="row" style="flex:1; gap:6px;">
+            <input type="number" min="0" placeholder="Coins -> EXP" value="100" data-act="coins" style="flex:1;">
+            <button class="btn soft" data-btn="feedCoins" style="flex:1;">Feed Coins</button>
+          </div>
+          <div class="row" style="flex:1; gap:6px;">
+            <input type="number" min="0" placeholder="Gems -> EXP" value="5" data-act="gems" style="flex:1;">
+            <button class="btn soft" data-btn="feedGems" style="flex:1;">Feed Gems</button>
+          </div>
+          <button class="btn" data-btn="merge" style="flex:1;">Merge Duplicate (+EXP)</button>
+          <button class="btn warn" data-btn="ascend" style="flex:1;">Ascend (Lv Cap)</button>
+          <button class="btn danger" data-btn="release" style="flex:1;">Release Unit</button>
+        </div>`;
+      row.querySelector("img").addEventListener("click", ()=> openModalImage(u.img, u.name));
+      // Wire buttons
+      row.querySelector("[data-btn='feedCoins']").onclick = ()=>{
+        const amt = Number(row.querySelector("input[data-act='coins']").value||0);
+        const cost = amt; // spend coins equals entered number
+        if(cost>state.economy.coins.balance) return alert("Not enough Coins.");
+        const exp = amt * state.progression.expPerCoin;
+        state.economy.coins.balance -= cost;
+        grantExp(u, exp); saveState(); refreshInventory(sortBy);
+      };
+      row.querySelector("[data-btn='feedGems']").onclick = ()=>{
+        const amt = Number(row.querySelector("input[data-act='gems']").value||0);
+        const cost = amt;
+        if(cost>state.economy.gems.balance) return alert("Not enough Gems.");
+        const exp = amt * state.progression.expPerGem;
+        state.economy.gems.balance -= cost;
+        grantExp(u, exp); saveState(); refreshInventory(sortBy);
+      };
+      row.querySelector("[data-btn='merge']").onclick = ()=>{
+        // Find another unit with same baseId (not this one)
+        const otherIdx = state.units.findIndex(x=> x.baseId===u.baseId && x.uid!==u.uid);
+        if(otherIdx<0) return alert("No duplicate to merge.");
+        state.units.splice(otherIdx,1);
+        grantExp(u, state.progression.mergeExp); saveState(); refreshInventory(sortBy);
+      };
+      row.querySelector("[data-btn='ascend']").onclick = ()=>{ ascend(u); saveState(); refreshInventory(sortBy); };
+      row.querySelector("[data-btn='release']").onclick = ()=>{
+        if(!confirm("Release this unit?")) return;
+        state.units = state.units.filter(x=>x.uid!==u.uid); saveState(); refreshInventory(sortBy);
+      };
+      host.appendChild(row);
+    });
+  }
+
+  function ensureSelects(){
+    const selPlay=$("#bannerRarityFilter"); selPlay.innerHTML=`<option value="all">All rarities</option>`;
+    const pity=$("#pityMin"); pity.innerHTML=`<option value="">None</option>`;
+    const many = [$("#cRarity"), $("#mRarity"), $("#iRarity"), $("#pRarity"), $("#pPity")];
+    state.rarities.forEach(r=>{
+      const o1=document.createElement("option"); o1.value=r.id; o1.textContent=`${r.tier} ${r.name}`; selPlay.appendChild(o1);
+      const o2=document.createElement("option"); o2.value=r.id; o2.textContent=`${r.tier} ${r.name}`; pity.appendChild(o2);
+      many.forEach(sel=>{ const o=document.createElement("option"); o.value=r.id; o.textContent=`${r.tier} ${r.name}`; sel.appendChild(o); });
+    });
+  }
+
+  function renderShop(){
+    const host=$("#packList"); host.innerHTML="";
+    state.shop.forEach(p=>{
+      const row=document.createElement("div"); row.className="card";
+      row.innerHTML = `
+        <div class="meta">
+          <b>${p.name}</b>
+          <div class="small">${p.desc||""}</div>
+          <div class="small">Tags: ${p.tags.join(", ")||"-"} • World: ${p.world||"-"} • Rarity: ${getRarityById(p.rarityId)?.name||"Any"} • Pity: ${getRarityById(p.pity)?.name||"None"}</div>
+          <div class="small">Price: Coins ${p.priceCoins} • Gems ${p.priceGems} • Pulls ${p.pulls}</div>
+        </div>
+        <div class="row" style="gap:6px; flex:0 0 240px;">
+          <button class="btn soft">Edit</button>
+          <button class="btn warn">Buy (Coins)</button>
+          <button class="btn warn">Buy (Gems)</button>
+          <button class="btn danger">Delete</button>
+        </div>`;
+      const [editBtn,buyC,buyG,delBtn]=row.querySelectorAll("button");
+      editBtn.onclick=()=>fillPackEditor(p);
+      delBtn.onclick=()=>{ if(confirm("Delete pack?")){ state.shop = state.shop.filter(x=>x.id!==p.id); saveState(); renderShop(); } };
+      buyC.onclick=()=>buyPack(p,"coins");
+      buyG.onclick=()=>buyPack(p,"gems");
+      host.appendChild(row);
+    });
+  }
+
+  // ---------- Pulls & Shop ----------
+  function canAfford(cost, cur){ return state.economy[cur].balance >= cost; }
+  function spend(cost, cur){ state.economy[cur].balance -= cost; }
+
+  function doPulls(n, options={}){
+    const pity = options.pity || ($("#pityMin").value || null);
+    const forcedRarity = options.forceRarity || ($("#bannerRarityFilter").value!=="all" ? $("#bannerRarityFilter").value : "");
+    const tags = ensureArrayTags($("#playTagFilter").value);
+    const world = ($("#playWorldFilter").value||"").trim().toLowerCase();
+    const predicate = options.predicate || ((c)=>{
+      if(forcedRarity && c.rarityId!==forcedRarity) return false;
+      if(world && (c.world||"").toLowerCase()!==world) return false;
+      if(tags.length){
+        const ct=(c.tags||[]).map(x=>x.toLowerCase());
+        if(!tags.some(t=>ct.includes(t.toLowerCase()))) return false;
+      }
+      return true;
+    });
+    const results=[];
+    for(let i=0;i<n;i++){
+      let rarity = rollRarity(pity);
+      if(forcedRarity){
+        let safety=2000;
+        while(rarity.id!==forcedRarity && safety-->0){ rarity = rollRarity(pity); }
+      }
+      const base = pickCharacter(rarity.id, predicate);
+      if(!base){ addLog(`No character matched filters at ${getRarityById(rarity.id)?.name}.`); continue; }
+      const unit = addUnitFromBase(base);
+      results.push(unit);
+    }
+    saveState();
+    renderResults(results);
+    results.forEach(u=>{
+      const r=getRarityById(u.rarityId);
+      addLog(`<img src="${u.img||''}" onerror="this.src='';">Pulled <b>${u.name}</b> <span class="rarity-chip" style="background:${r?.gradient}">${r?.tier||""} ${r?.name||"?"}</span> • Lv ${u.level}`);
+    });
+    refreshInventory();
+  }
+
+  function pullCostFor(cur){
+    return cur==="gems" ? state.economy.gems.pullCost : state.economy.coins.pullCost;
+  }
+
+  function buyPack(p, cur){
+    const price = (cur==="coins") ? Number(p.priceCoins||0) : Number(p.priceGems||0);
+    if(price<=0) return alert("This pack has no price in the selected currency.");
+    if(!canAfford(price, cur)) return alert("Not enough currency.");
+    spend(price, cur); saveState();
+    const predicate = (c)=>{
+      if(p.rarityId && c.rarityId!==p.rarityId) return false;
+      if((p.world||"") && (c.world||"")!==p.world) return false;
+      if((p.tags||[]).length){
+        const ct=(c.tags||[]).map(x=>x.toLowerCase());
+        if(!p.tags.some(t=>ct.includes(t.toLowerCase()))) return false;
+      }
+      return true;
+    };
+    doPulls(Number(p.pulls||1), { pity: p.pity||null, predicate, forceRarity: p.rarityId||"" });
+    addLog(`Bought pack <b>${p.name}</b> with ${state.economy[cur].name} ${price}.`);
+  }
+
+  // ---------- Economy / Progression UI ----------
+  function refreshEconomyUI(){
+    $("#coinsView").textContent = `${state.economy.coins.name}: ${state.economy.coins.balance}`;
+    $("#gemsView").textContent  = `${state.economy.gems.name}: ${state.economy.gems.balance}`;
+    $("#pullCurrency").value = state.economy.pullCurrency;
+    $("#pullCostCoins").value = state.economy.coins.pullCost;
+    $("#pullCostGems").value = state.economy.gems.pullCost;
+    $("#tenxDiscount").value = state.economy.tenxDiscount;
+
+    $("#levelCap").value = state.progression.levelCap;
+    $("#expBase").value = state.progression.expBase;
+    $("#expGrowth").value = state.progression.expGrowth;
+    $("#expPerCoin").value = state.progression.expPerCoin;
+    $("#expPerGem").value = state.progression.expPerGem;
+    $("#mergeExp").value = state.progression.mergeExp;
+    $("#growthPerLevel").value = state.progression.growthPerLevel;
+  }
+
+  $("#saveEconomy").addEventListener("click", ()=>{
+    state.economy.pullCurrency = $("#pullCurrency").value;
+    state.economy.coins.pullCost = Math.max(0, Number($("#pullCostCoins").value||0));
+    state.economy.gems.pullCost  = Math.max(0, Number($("#pullCostGems").value||0));
+    state.economy.tenxDiscount = Math.max(0, Math.min(100, Number($("#tenxDiscount").value||0)));
+    saveState(); addLog("Saved economy.");
+  });
+
+  $("#saveProgression").addEventListener("click", ()=>{
+    state.progression.levelCap = Math.max(1, Number($("#levelCap").value||100));
+    state.progression.expBase = Math.max(1, Number($("#expBase").value||100));
+    state.progression.expGrowth = Math.max(0, Number($("#expGrowth").value||0));
+    state.progression.expPerCoin = Math.max(0, Number($("#expPerCoin").value||0));
+    state.progression.expPerGem  = Math.max(0, Number($("#expPerGem").value||0));
+    state.progression.mergeExp   = Math.max(0, Number($("#mergeExp").value||0));
+    state.progression.growthPerLevel = Math.max(0, Number($("#growthPerLevel").value||0));
+    saveState(); addLog("Saved progression settings.");
+  });
+
+  $("#grantCoins").addEventListener("click", ()=>{ state.economy.coins.balance += 1000; saveState(); addLog("Granted 1,000 Coins."); });
+  $("#grantGems").addEventListener("click", ()=>{ state.economy.gems.balance  += 500;  saveState(); addLog("Granted 500 Gems."); });
+
+  // ---------- Rarities editor ----------
+  $("#saveRarities").addEventListener("click", ()=>{
+    const next = state.rarities.map(r=>({...r}));
+    $$("#rarityList [data-field]").forEach(input=>{
+      const oldId=input.dataset.id; const r=next.find(x=>x.id===oldId); if(!r) return;
+      const field=input.dataset.field; const val=(field==="weight")? Number(input.value||0): input.value;
+      if(field==="id"){
+        const newId = val.trim() || oldId;
+        // update references
+        state.characters.forEach(c=>{ if(c.rarityId===r.id) c.rarityId=newId; });
+        state.units.forEach(u=>{ if(u.rarityId===r.id) u.rarityId=newId; });
+        r.id=newId;
+      }else{ r[field]=val; }
+    });
+    state.rarities=next; saveState(); ensureSelects(); renderDropTable(); addLog("Saved rarities."); 
+  });
+  $("#rebalanceWeights").addEventListener("click", ()=>{
+    const total=totalRarityWeight(); const target=1000;
+    if(total<=0) return alert("Total weight must be > 0.");
+    state.rarities.forEach(r=> r.weight = Number(((r.weight/total)*target).toFixed(3)) );
+    saveState(); renderRaritiesEditor(); renderDropTable(); addLog("Normalized weights to sum=1000.");
+  });
+
+  // ---------- Character editor ----------
+  function readStats(){
+    const keys=["STR","DEX","CON","INT","WIS","CHA"]; const obj={};
+    keys.forEach(k=> obj[k] = Number(($("#stat"+k).value)||10) ); return obj;
+  }
+  function fillEditor(c){
+    $("#cName").value=c.name; $("#cImg").value=c.img||""; $("#cRarity").value=c.rarityId; $("#cWeight").value=c.weight||1;
+    $("#cTags").value=(c.tags||[]).join(", "); $("#cWorld").value=c.world||"";
+    $("#statSTR").value=c.stats?.STR ?? 10; $("#statDEX").value=c.stats?.DEX ?? 10; $("#statCON").value=c.stats?.CON ?? 10;
+    $("#statINT").value=c.stats?.INT ?? 10; $("#statWIS").value=c.stats?.WIS ?? 10; $("#statCHA").value=c.stats?.CHA ?? 10;
+    $("#saveChar").dataset.editingId = c.id;
+  }
+  function clearEditor(){
+    $("#cName").value=""; $("#cImg").value=""; $("#cRarity").value=state.rarities[0]?.id||""; $("#cWeight").value=1;
+    $("#cTags").value=""; $("#cWorld").value="";
+    ["STR","DEX","CON","INT","WIS","CHA"].forEach(k=> $("#stat"+k).value=10 );
+    delete $("#saveChar").dataset.editingId;
+  }
+  $("#rollStats").addEventListener("click", ()=>{
+    const r=()=> Math.floor(Math.random()*6+1) + Math.floor(Math.random()*6+1) + Math.floor(Math.random()*6+1);
+    ["STR","DEX","CON","INT","WIS","CHA"].forEach(k=> $("#stat"+k).value=r() );
+  });
+  $("#saveChar").addEventListener("click", ()=>{
+    const name=$("#cName").value.trim(); const img=$("#cImg").value.trim(); const rarityId=$("#cRarity").value;
+    const weight=Math.max(1, Number($("#cWeight").value||1)); const tags=ensureArrayTags($("#cTags").value); const world=($("#cWorld").value||"").trim();
+    if(!name || !rarityId) return alert("Name and rarity are required.");
+    const stats=readStats(); const editingId=$("#saveChar").dataset.editingId;
+    if(editingId){
+      const i=state.characters.findIndex(c=>c.id===editingId);
+      if(i>=0){ state.characters[i] = {...state.characters[i], name,img,rarityId,weight,tags,world,stats}; addLog(`Updated <b>${name}</b>.`); }
+    }else{
+      state.characters.push({ id:uid(), name,img,rarityId,weight,tags,world,stats, createdAt: Date.now() });
+      addLog(`Added <b>${name}</b> to pool.`);
+    }
+    clearEditor(); saveState(); renderCharList(); renderDropTable();
+  });
+
+  // ---------- Manager search ----------
+  ["mSearch","mTag","mWorld","mRarity"].forEach(id=> $("#"+id).addEventListener("input", renderCharList));
+  $("#mClear").addEventListener("click", ()=>{ $("#mSearch").value=""; $("#mTag").value=""; $("#mWorld").value=""; $("#mRarity").value=""; renderCharList(); });
+
+  // ---------- Inventory search & sort ----------
+  let invSort="rarity";
+  $("#sortByRarity").addEventListener("click", ()=>{ invSort="rarity"; refreshInventory(invSort); });
+  $("#sortByName").addEventListener("click", ()=>{ invSort="name"; refreshInventory(invSort); });
+  ["iSearch","iTag","iWorld","iRarity"].forEach(id=> $("#"+id).addEventListener("input", ()=> refreshInventory(invSort)) );
+
+  // ---------- Export / Import / Reset ----------
+  $("#exportBtn").addEventListener("click", ()=>{
+    const blob = new Blob([JSON.stringify(state,null,2)], {type:"application/json"});
+    const url=URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download="gacha_export_v3.json"; a.click(); URL.revokeObjectURL(url);
+  });
+  $("#importBtn").addEventListener("click", ()=> $("#importFile").click() );
+  $("#importFile").addEventListener("change", (e)=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{ try{
+      const obj=JSON.parse(r.result);
+      if(!obj.rarities || !obj.economy || !obj.progression || !obj.characters || !obj.units || !obj.shop) throw new Error("Invalid file");
+      state=obj; saveState(); addLog("Imported data.");
+    }catch(err){ alert("Import failed: "+err.message); } };
+    r.readAsText(f);
+  });
+  $("#resetBtn").addEventListener("click", ()=>{
+    if(!confirm("Reset all data?")) return;
+    localStorage.removeItem("gacha_state_v3");
+    state = { rarities: JSON.parse(JSON.stringify(defaultRarities)), economy: JSON.parse(JSON.stringify(defaultEconomy)), progression: JSON.parse(JSON.stringify(defaultProgression)), characters: [], units: [], shop: JSON.parse(JSON.stringify(defaultShop)) };
+    saveState(); addLog("Reset complete."); clearEditor();
+  });
+
+  // ---------- Play buttons ----------
+  $("#pull1").addEventListener("click", ()=>{
+    const cur=state.economy.pullCurrency;
+    const cost=pullCostFor(cur);
+    if(cost>0){ if(!canAfford(cost, cur)) return alert("Not enough currency."); spend(cost, cur); saveState(); }
+    doPulls(1, {});
+  });
+  $("#pull10").addEventListener("click", ()=>{
+    const cur=state.economy.pullCurrency;
+    const base=pullCostFor(cur)*10; const disc=Math.min(100, Math.max(0, Number(state.economy.tenxDiscount||0)));
+    const cost=Math.floor(base*(1-disc/100));
+    if(cost>0){ if(!canAfford(cost, cur)) return alert("Not enough currency."); spend(cost, cur); saveState(); }
+    doPulls(10, {});
+  });
+  $("#clearLog").addEventListener("click", ()=> $("#log").innerHTML="");
+
+  // ---------- Shop editor ----------
+  function fillPackEditor(p){
+    $("#pName").value=p.name||""; $("#pDesc").value=p.desc||""; $("#pTags").value=(p.tags||[]).join(", ");
+    $("#pWorld").value=p.world||""; $("#pRarity").value=p.rarityId||""; $("#pPity").value=p.pity||"";
+    $("#pPriceCoins").value=p.priceCoins||0; $("#pPriceGems").value=p.priceGems||0; $("#pPulls").value=p.pulls||10;
+    $("#savePack").dataset.editingId=p.id;
+  }
+  function clearPackEditor(){ ["pName","pDesc","pTags","pWorld"].forEach(id=> $("#"+id).value=""); $("#pRarity").value=""; $("#pPity").value=""; $("#pPriceCoins").value=1000; $("#pPriceGems").value=0; $("#pPulls").value=10; delete $("#savePack").dataset.editingId; }
+  $("#clearPack").addEventListener("click", clearPackEditor);
+  $("#savePack").addEventListener("click", ()=>{
+    const p={
+      name: $("#pName").value.trim(), desc: $("#pDesc").value.trim(), tags: ensureArrayTags($("#pTags").value),
+      world: ($("#pWorld").value||"").trim(), rarityId: $("#pRarity").value||"", pity: $("#pPity").value||"",
+      priceCoins: Math.max(0, Number($("#pPriceCoins").value||0)), priceGems: Math.max(0, Number($("#pPriceGems").value||0)),
+      pulls: Math.max(1, Number($("#pPulls").value||1)),
+    };
+    if(!p.name) return alert("Pack name required.");
+    const id=$("#savePack").dataset.editingId;
+    if(id){ const i=state.shop.findIndex(x=>x.id===id); if(i>=0){ state.shop[i]={...state.shop[i], ...p}; addLog(`Updated pack <b>${p.name}</b>.`); } }
+    else{ state.shop.push({ id:uid(), ...p }); addLog(`Added pack <b>${p.name}</b>.`); }
+    clearPackEditor(); saveState(); renderShop();
+  });
+
+  // ---------- Initial paint ----------
+  function ensureSelects(){
+    $("#bannerRarityFilter").innerHTML=`<option value="all">All rarities</option>`;
+    $("#pityMin").innerHTML=`<option value="">None</option>`;
+    $("#cRarity").innerHTML=""; $("#mRarity").innerHTML="<option value=''>Any Rarity</option>";
+    $("#iRarity").innerHTML="<option value=''>Any Rarity</option>"; $("#pRarity").innerHTML="<option value=''>Any</option>"; $("#pPity").innerHTML="<option value=''>None</option>";
+    state.rarities.forEach(r=>{
+      const o1=document.createElement("option"); o1.value=r.id; o1.textContent=`${r.tier} ${r.name}`; $("#bannerRarityFilter").appendChild(o1);
+      const o2=document.createElement("option"); o2.value=r.id; o2.textContent=`${r.tier} ${r.name}`; $("#pityMin").appendChild(o2);
+      [$("#cRarity"), $("#mRarity"), $("#iRarity"), $("#pRarity"), $("#pPity")].forEach(sel=>{
+        const o=document.createElement("option"); o.value=r.id; o.textContent=`${r.tier} ${r.name}`; sel.appendChild(o);
+      });
+    });
+  }
+
+  function refreshUI(){
+    refreshEconomyUI();
+    ensureSelects();
+    renderDropTable();
+    renderRaritiesEditor();
+    renderCharList();
+    refreshInventory();
+    renderShop();
+  }
+  refreshUI();
+  // Clear manager editor defaults
+  (function clearEditor(){
+    $("#cName").value=""; $("#cImg").value=""; $("#cRarity").value=state.rarities[0]?.id||""; $("#cWeight").value=1;
+    $("#cTags").value=""; $("#cWorld").value="";
+    ["STR","DEX","CON","INT","WIS","CHA"].forEach(k=> $("#stat"+k).value=10 );
+    delete $("#saveChar").dataset.editingId;
+  })();
+})();
+</script>
+</body>
+</html>

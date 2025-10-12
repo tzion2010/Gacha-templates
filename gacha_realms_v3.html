@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Gacha Realms — v3 (JSON Layout Engine)</title>
+<style>
+  :root{
+    --bg:#121212;
+    --text:#FFFFFF;
+    --muted:rgba(255,255,255,0.7);
+    --accent:#00BFFF;
+    --success:#39D98A;
+    --warning:#F5A524;
+    --error:#F97066;
+    --panel: rgba(255,255,255,0.06);
+    --card: rgba(255,255,255,0.08);
+    --shadow-card: 0 6px 16px rgba(0,0,0,0.35);
+    --shadow-popup: 0 10px 30px rgba(0,0,0,0.5);
+    --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px;
+    --sp-xs:4px; --sp-sm:8px; --sp-md:12px; --sp-lg:16px; --sp-xl:24px;
+    --safe-top:24px; --safe-bottom:24px; --safe-left:16px; --safe-right:16px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0; height:100%; background:var(--bg); color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  #app{min-height:100vh; padding:var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); display:flex; flex-direction:column; gap:var(--sp-lg)}
+  .screen{display:none}
+  .screen.active{display:block; animation:fade .2s ease}
+  @keyframes fade{from{opacity:0; transform:translateY(4px)} to{opacity:1; transform:none}}
+  .text{line-height:1.25}
+  .h1{font-size:24px; font-weight:700}
+  .h2{font-size:20px; font-weight:700}
+  .body{font-size:14px; font-weight:500}
+  .caption{font-size:12px; font-weight:500}
+  .muted{color:var(--muted)}
+  .card{background:var(--card); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-lg); box-shadow:var(--shadow-card); padding:var(--sp-md)}
+  .panel{background:var(--panel); border:1px solid rgba(255,255,255,0.08); border-radius:var(--r-lg); padding:var(--sp-md)}
+  .vstack{display:flex; flex-direction:column}
+  .hstack{display:flex; align-items:center}
+  .wrap{display:flex; flex-wrap:wrap}
+  .grid{display:grid; gap:var(--sp-md)}
+  .grid[data-cols="2"]{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .grid[data-cols="3"]{grid-template-columns:repeat(3, minmax(0,1fr))}
+  .grid[data-cols="4"]{grid-template-columns:repeat(4, minmax(0,1fr))}
+  .grid[data-cols="5"]{grid-template-columns:repeat(5, minmax(0,1fr))}
+  .btn{appearance:none; border:0; border-radius:12px; padding:10px 14px; font-weight:700; background:rgba(255,255,255,0.08); color:var(--text); cursor:pointer}
+  .btn.primary{background:linear-gradient(135deg,#00d0ff,#6e7bff)}
+  .btn.ghost{background:transparent; border:1px solid rgba(255,255,255,0.2)}
+  .badge{display:inline-flex; align-items:center; gap:6px; padding:6px 10px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:999px; font-size:12px}
+  .chip{display:inline-flex; align-items:center; padding:4px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.2); font-size:12px; cursor:pointer}
+  .chip[data-active="true"]{outline:2px solid var(--accent)}
+  .input{width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:var(--text); border-radius:10px; padding:10px; outline:none}
+  .select{width:100%; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.18); color:var(--text); border-radius:10px; padding:10px}
+  .slider{appearance:none; width:100%}
+  .img{width:100%; border-radius:12px; object-fit:cover; aspect-ratio:1/1; background:#0b0f17; border:1px solid rgba(255,255,255,0.1)}
+  .row{display:flex; align-items:center; justify-content:space-between}
+  .progress{height:10px; background:rgba(255,255,255,0.06); border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,0.12)}
+  .progress>span{display:block; height:100%; background:linear-gradient(90deg, #22c55e, #3b82f6)}
+  .sp-xs{gap:var(--sp-xs)} .sp-sm{gap:var(--sp-sm)} .sp-md{gap:var(--sp-md)} .sp-lg{gap:var(--sp-lg)} .sp-xl{gap:var(--sp-xl)}
+  .mt-8{margin-top:8px} .mt-12{margin-top:12px} .mt-16{margin-top:16px} .mt-24{margin-top:24px} .mt-32{margin-top:32px}
+  .px-lg{padding-left:var(--sp-lg); padding-right:var(--sp-lg)}
+  .center{text-align:center}
+  .icon{width:16px; height:16px; display:inline-block; background:currentColor; mask-size:contain; -webkit-mask-size:contain; mask-repeat:no-repeat; -webkit-mask-repeat:no-repeat}
+  .icon.coin{mask-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle fill="white" cx="12" cy="12" r="10"/></svg>')}
+  .icon.gem{mask-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="white" d="M3 9l6-6h6l6 6-9 12z"/></svg>')}
+  dialog{border:0; padding:0; background:transparent}
+  .modal{width:min(520px,96vw); background:var(--panel); border:1px solid rgba(255,255,255,0.2); border-radius:var(--r-xl); padding:var(--sp-lg); box-shadow:var(--shadow-popup)}
+  .toast{position:fixed; right:12px; bottom:12px; background:rgba(0,0,0,0.8); color:#fff; border-radius:10px; padding:10px 12px; display:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- Character Popup -->
+<dialog id="charDialog">
+  <div class="modal">
+    <div class="row">
+      <div class="hstack sp-sm">
+        <img id="charPortrait" class="img" style="width:64px; height:64px; aspect-ratio:1/1">
+        <div>
+          <div class="h2" id="charName"></div>
+          <div class="caption muted"><span id="charClass"></span> • <span id="charOrigin"></span></div>
+        </div>
+      </div>
+      <button class="btn" id="btnCloseDialog">Close</button>
+    </div>
+    <div class="wrap sp-sm mt-12" id="charTags"></div>
+    <div class="panel mt-12">
+      <table style="width:100%; font-size:12px">
+        <tbody id="statsTable"></tbody>
+      </table>
+    </div>
+    <div class="mt-12">
+      <div class="caption muted">Ascension</div>
+      <div class="progress"><span id="ascBar" style="width:0%"></span></div>
+    </div>
+    <div class="hstack sp-sm mt-12">
+      <button class="btn" id="btnLevelUp">Level Up</button>
+      <button class="btn" id="btnAscend">Ascend</button>
+      <button class="btn" id="btnAddTag">Add Tag</button>
+      <button class="btn" id="btnOpenEditor">Edit</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Character Editor -->
+<dialog id="editDialog">
+  <div class="modal">
+    <div class="row">
+      <div class="h2">Edit Character</div>
+      <button class="btn" id="btnCloseEdit">Close</button>
+    </div>
+    <div class="vstack sp-sm mt-12">
+      <input class="input" id="edName" placeholder="Name">
+      <input class="input" id="edImg" placeholder="Image URL">
+      <input class="input" id="edClass" placeholder="Class">
+      <input class="input" id="edOrigin" placeholder="World Origin">
+      <select class="select" id="edRarity"></select>
+      <input class="input" id="edTags" placeholder="Tags, comma separated">
+      <div class="grid" data-cols="3">
+        <input class="input" id="edSTR" type="number" placeholder="STR">
+        <input class="input" id="edDEX" type="number" placeholder="DEX">
+        <input class="input" id="edCON" type="number" placeholder="CON">
+        <input class="input" id="edINT" type="number" placeholder="INT">
+        <input class="input" id="edWIS" type="number" placeholder="WIS">
+        <input class="input" id="edCHA" type="number" placeholder="CHA">
+      </div>
+      <div class="hstack sp-sm">
+        <input class="input" id="edLevel" type="number" placeholder="Level">
+        <input class="input" id="edAsc" type="number" placeholder="Ascension">
+      </div>
+      <div class="hstack sp-sm">
+        <button class="btn primary" id="btnSaveEdit">Save</button>
+        <button class="btn ghost" id="btnCancelEdit">Cancel</button>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================
+   JSON Layout (from user)
+   ========================= */
+const LAYOUT = {"ui_layout": {"design_system": {"safe_area": {"top": 24, "bottom": 24, "left": 16, "right": 16}, "spacing": {"xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24}, "grid": {"cols": 12, "gutter": 8}, "typography": {"h1": {"size": 24, "weight": "700"}, "h2": {"size": 20, "weight": "700"}, "body": {"size": 14, "weight": "500"}, "caption": {"size": 12, "weight": "500"}}, "colors": {"bg": "#121212", "panel": "rgba(255,255,255,0.06)", "card": "rgba(255,255,255,0.08)", "text": "#FFFFFF", "muted": "rgba(255,255,255,0.7)", "accent": "#00BFFF", "success": "#39D98A", "warning": "#F5A524", "error": "#F97066"}, "shadows": {"card": "0 6 16 rgba(0,0,0,0.35)", "popup": "0 10 30 rgba(0,0,0,0.5)"}, "radius": {"sm": 8, "md": 12, "lg": 16, "xl": 20}}, "screens": {"main_menu": {"layout": [{"id": "title", "type": "text", "text": "Gacha Realms", "style": {"variant": "h1", "align": "center", "mt": 32}}, {"id": "menuButtons", "type": "vstack", "children": [{"id": "btnSummon", "type": "button", "text": "Summon", "action": "NAVIGATE:summon_screen"}, {"id": "btnInventory", "type": "button", "text": "Characters", "action": "NAVIGATE:character_inventory"}, {"id": "btnDatabase", "type": "button", "text": "Database", "action": "NAVIGATE:database_view"}, {"id": "btnSettings", "type": "button", "text": "Settings", "action": "NAVIGATE:settings"}], "style": {"gap": "md", "mt": 24, "px": "lg"}}, {"id": "currencyBar", "type": "hstack", "children": [{"id": "coins", "type": "badge", "icon": "coin", "bind": "player.currencies.coins"}, {"id": "gems", "type": "badge", "icon": "gem", "bind": "player.currencies.gems"}], "style": {"justify": "center", "gap": "lg", "mt": 24}}]}, "summon_screen": {"layout": [{"id": "header", "type": "text", "text": "Summon", "style": {"variant": "h2", "align": "center", "mt": 8}}, {"id": "bannerCard", "type": "card", "style": {"mt": 12, "p": "md", "radius": "xl", "shadow": "card"}, "children": [{"id": "rarityChances", "type": "list", "bind": "systems.gacha.rarities", "item": {"type": "hstack", "children": [{"type": "chip", "bind": "item.rank", "style": {"gradient": "item.color", "radius": "sm"}}, {"type": "text", "bind": "format.percent(item.drop_rate)", "style": {"color": "muted"}}], "style": {"justify": "space-between", "py": 6}}}, {"id": "gemBoostRow", "type": "hstack", "children": [{"type": "text", "text": "Gem Boost", "style": {"variant": "body"}}, {"id": "gemBoostSlider", "type": "slider", "min": 0, "max": 250, "step": 50, "bind": "session.summon.gems_spent", "onChange": "ACTION:UPDATE_GEM_BOOST_MULTIPLIER"}, {"type": "badge", "icon": "gem", "bind": "session.summon.gems_spent"}], "style": {"mt": 12, "gap": "md"}}, {"id": "pityRow", "type": "hstack", "children": [{"type": "text", "text": "Pity:", "style": {"variant": "caption", "color": "muted"}}, {"type": "progress", "bind": "player.pity.progress", "max": 100}, {"type": "text", "bind": "player.pity.progress + '/100'", "style": {"variant": "caption"}}], "style": {"mt": 8, "gap": "sm"}}]}, {"id": "summonActions", "type": "hstack", "children": [{"id": "btnSingle", "type": "button", "text": "Single (1,000 Coins)", "style": {"grow": 1}, "action": "FUNC:SUMMON_SINGLE"}, {"id": "btnTenPull", "type": "button", "text": "Ten Pull (9,000 Coins)", "style": {"grow": 1}, "action": "FUNC:SUMMON_TEN"}], "style": {"gap": "lg", "mt": 16, "px": "lg"}}, {"id": "resultsArea", "type": "grid", "cols": 5, "children": [], "bind": "session.summon.results", "item": {"type": "card", "style": {"radius": "lg", "p": 6, "bg": "card"}, "children": [{"type": "image", "bind": "item.image_url", "style": {"ratio": "1:1", "radius": "md"}}, {"type": "text", "bind": "item.name", "style": {"variant": "caption", "align": "center", "mt": 4}}], "onTap": "OPEN_POPUP:popup_character_info(item.id)"}, "style": {"mt": 16, "px": "lg"}}, {"id": "footerCurrencies", "type": "hstack", "children": [{"type": "badge", "icon": "coin", "bind": "player.currencies.coins"}, {"type": "badge", "icon": "gem", "bind": "player.currencies.gems"}], "style": {"justify": "space-between", "px": "lg", "mt": 12}}]}, "character_inventory": {"layout": [{"id": "filters", "type": "vstack", "children": [{"id": "tagSearchRow", "type": "hstack", "children": [{"type": "input", "placeholder": "Search name, class, world...", "bind": "session.search.query"}], "style": {"gap": "sm", "px": "lg", "mt": 8}}, {"id": "rarityChips", "type": "wrap", "bind": "systems.gacha.rarities", "item": {"type": "chip", "bind": "item.rank", "style": {"gradient": "item.color", "radius": "sm"}, "onToggle": "ACTION:TOGGLE_RARITY_FILTER(item.rank)"}, "style": {"gap": "sm", "px": "lg", "mt": 8}}]}, {"id": "inventoryGrid", "type": "grid", "cols": 3, "bind": "QUERY:charactersFiltered(session.search)", "item": {"type": "card", "style": {"radius": "lg", "p": 6, "bg": "card"}, "children": [{"type": "image", "bind": "item.image_url", "style": {"ratio": "1:1", "radius": "md"}}, {"type": "hstack", "children": [{"type": "text", "bind": "item.name", "style": {"variant": "body"}}, {"type": "chip", "bind": "item.rarity", "style": {"radius": "sm"}}], "style": {"justify": "space-between", "mt": 6}}], "onTap": "OPEN_POPUP:popup_character_info(item.id)"}, "style": {"px": "lg", "mt": 8}}]}, "database_view": {"layout": [{"id": "title", "type": "text", "text": "Database", "style": {"variant": "h2", "align": "center", "mt": 8}}]}}}};
+
+/* =========================
+   State & DB (as v2, adapted)
+   ========================= */
+const DEFAULT_CONFIG = {
+  systems:{
+    gacha:{
+      rarities:[
+        { rank:"F",  color:["#000000","#808080"], drop_rate:0.40 },
+        { rank:"E",  color:["#556B2F","#228B22"], drop_rate:0.25 },
+        { rank:"D",  color:["#4169E1","#0000CD"], drop_rate:0.15 },
+        { rank:"C",  color:["#800080","#6A0DAD"], drop_rate:0.08 },
+        { rank:"B",  color:["#FFD700","#FFB300"], drop_rate:0.05 },
+        { rank:"A",  color:["#DC143C","#FF4500"], drop_rate:0.03 },
+        { rank:"S",  color:["#FFFFFF","#C0C0C0"], drop_rate:0.02 },
+        { rank:"SS", color:["#008080","#00FFFF"], drop_rate:0.01 },
+        { rank:"SSS",color:["#4B0082","#FF00FF"], drop_rate:0.007 },
+        { rank:"EX", color:["#0000FF","#E6E6FA"], drop_rate:0.004 },
+        { rank:"Ω",  color:["#000000","#00FFFF"], drop_rate:0.002 },
+        { rank:"XΩ", color:["#FF0000","#00FFFF"], drop_rate:0.001 },
+        { rank:"∞",  color:["#FF00FF","#FFFFFF"], drop_rate:0.0005 }
+      ],
+      currency_costs:{ single:{coins:1000}, ten_pull:{coins:9000} },
+      gem_boost:{ enabled:true, multiplier:{ gems_spent:{ "0":1.0, "50":1.2, "100":1.5, "250":2.0 } } },
+      pity_system:{ enabled:true, counter_max:100, guaranteed_rarity:"SSS" }
+    },
+    world_origin:{ examples:["Skyrend","Eterna","Voidreach","Aetherfall"] },
+    tags_system:{ examples:["Fire","Elf","Undead","Royal","GuildA"] },
+    progression:{ level_cap:100, ascension_tiers:5 }
+  }
+};
+
+const DB_KEY = "gr_v3_db";
+const BACKUP_KEY = "gr_v3_backups";
+
+const $ = s => document.querySelector(s);
+function pick(a){ return a[Math.floor(Math.random()*a.length)] }
+function clamp(n,min,max){ return Math.max(min, Math.min(max,n)) }
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.style.display="block"; setTimeout(()=>t.style.display="none", 1600); }
+function dndStats(){ const r = ()=> Math.max(3, Math.floor(8+Math.random()*10)); return {STR:r(),DEX:r(),CON:r(),INT:r(),WIS:r(),CHA:r()}; }
+function randomName(){ const A=["Ara","Bel","Cael","Dra","Ela","Faer","Gor","Hym","Ira","Jas","Kael","Lun","Mor","Nym","Or","Pyr","Quel","Ryn","Syl","Tor","Um","Vyr","Wyn","Xan","Yor","Zel"]; const B=["drel","mira","thas","vyn","lith","gorn","jara","syl","vore","ryn","nix","thil","ver","lune","most","skai","dera","zeth"]; return pick(A)+pick(B); }
+function rarityOrder(){ return ["F","E","D","C","B","A","S","SS","SSS","EX","Ω","XΩ","∞"]; }
+function rarityMultiplier(rank){ const idx = rarityOrder().indexOf(rank); return 0.6 + idx*0.25; }
+
+function seedCatalog(){
+  const list=[];
+  for(let i=0;i<20;i++){
+    list.push({
+      name: randomName(),
+      class: pick(["Warrior","Mage","Rogue","Cleric","Ranger","Monk"]),
+      world_origin: pick(DEFAULT_CONFIG.systems.world_origin.examples),
+      tags:[pick(DEFAULT_CONFIG.systems.tags_system.examples)],
+      image_url:`https://picsum.photos/seed/grv3_${i}/128/128`,
+      base: dndStats()
+    });
+  }
+  return list;
+}
+
+function loadDB(){
+  const raw = localStorage.getItem(DB_KEY);
+  if(!raw){
+    const db = {
+      config: DEFAULT_CONFIG,
+      currencies:{ coins: 12000, gems: 300, pity:0 },
+      session:{ summon:{ results:[], gems_spent:0, multiplier:1.0 }, search:{query:"", tags:[], rarities:[]}},
+      characters:[],
+      catalog: seedCatalog()
+    };
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+    return db;
+  }
+  try{ return JSON.parse(raw); }catch(e){ localStorage.removeItem(DB_KEY); return loadDB(); }
+}
+function saveDB(){ localStorage.setItem(DB_KEY, JSON.stringify(DB)); }
+
+let DB = loadDB();
+
+/* =========================
+   Gacha + Logic
+   ========================= */
+function buildWeightedTable(){
+  return DB.config.systems.gacha.rarities.map(r=>({rank:r.rank, w:r.drop_rate}));
+}
+function tiltWeights(table, s){
+  if(s<=1.0001) return table.slice();
+  const order = rarityOrder(), maxIdx = order.length-1, p=1.6;
+  const adj = table.map(t=>{
+    const tpos = Math.max(0,order.indexOf(t.rank))/maxIdx;
+    const factor = Math.pow(1 + tpos*(s-1), p);
+    return {rank:t.rank, w:t.w*factor};
+  });
+  const sum = adj.reduce((a,b)=>a+b.w,0);
+  return adj.map(t=> ({rank:t.rank, w:t.w/sum}));
+}
+function weightedPick(table){
+  let tot = table.reduce((a,b)=>a+b.w,0), r=Math.random()*tot;
+  for(const t of table){ if(r < t.w) return t.rank; r -= t.w; }
+  return table[0].rank;
+}
+function scaleStats(base, rarity){
+  const m = rarityMultiplier(rarity); const out={};
+  for(const k of ["STR","DEX","CON","INT","WIS","CHA"]) out[k]=Math.round(base[k]*m);
+  return out;
+}
+function rollOne(boost=1.0){
+  const pityOn = DB.config.systems.gacha.pity_system.enabled;
+  const pityMax = DB.config.systems.gacha.pity_system.counter_max;
+  const guarantee = DB.config.systems.gacha.pity_system.guaranteed_rarity;
+  const pity = DB.currencies.pity||0;
+
+  let table = tiltWeights(buildWeightedTable(), boost);
+  let rarity = (pityOn && pity+1>=pityMax) ? guarantee : weightedPick(table);
+
+  const base = pick(DB.catalog).base;
+  const ch = {
+    id: crypto.randomUUID(),
+    name: randomName(),
+    rarity,
+    class: pick(["Warrior","Mage","Rogue","Cleric","Ranger","Monk"]),
+    world_origin: pick(DB.config.systems.world_origin.examples),
+    tags:[pick(DB.config.systems.tags_system.examples)],
+    image_url:`https://picsum.photos/seed/grv3_${Math.floor(Math.random()*999999)}/256/256`,
+    stats: scaleStats(base, rarity),
+    level:1, ascension:0, skills:{active:[],passive:[]}
+  };
+  const isHigh = ["SSS","EX","Ω","XΩ","∞"].includes(rarity);
+  DB.currencies.pity = isHigh ? 0 : (pity+1);
+  return ch;
+}
+function gemToMult(gems){
+  const map = DB.config.systems.gacha.gem_boost.multiplier.gems_spent;
+  return Number(map[String(gems)] || 1.0);
+}
+function doSingle(){
+  const cost = DB.config.systems.gacha.currency_costs.single.coins;
+  const gems = DB.session.summon.gems_spent||0;
+  if(DB.currencies.coins < cost){ toast("Not enough Coins."); return; }
+  if(DB.currencies.gems < gems){ toast("Not enough Gems."); return; }
+  DB.currencies.coins -= cost;
+  DB.currencies.gems -= gems;
+  const ch = rollOne(gemToMult(gems));
+  DB.characters.push(ch);
+  DB.session.summon.results = [ch];
+  saveDB(); render();
+}
+function doTen(){
+  const cost = DB.config.systems.gacha.currency_costs.ten_pull.coins;
+  const gemsSingle = DB.session.summon.gems_spent||0;
+  const gemsTotal = gemsSingle*10;
+  if(DB.currencies.coins < cost){ toast("Not enough Coins."); return; }
+  if(DB.currencies.gems < gemsTotal){ toast("Need "+gemsTotal+" Gems for selected boost."); return; }
+  DB.currencies.coins -= cost;
+  DB.currencies.gems -= gemsTotal;
+  const res=[];
+  for(let i=0;i<10;i++){ const ch = rollOne(gemToMult(gemsSingle)); DB.characters.push(ch); res.push(ch); }
+  DB.session.summon.results = res;
+  saveDB(); render();
+}
+function levelUp(id){
+  const ch = DB.characters.find(c=>c.id===id); if(!ch) return;
+  if(DB.currencies.coins < 50){ toast("Not enough Coins."); return; }
+  if(ch.level >= DB.config.systems.progression.level_cap){ toast("Level cap"); return; }
+  DB.currencies.coins -= 50; ch.level += 1;
+  for(const k of ["STR","DEX","CON","INT","WIS","CHA"]) ch.stats[k]+=1;
+  saveDB(); render();
+}
+function ascend(id){
+  const ch = DB.characters.find(c=>c.id===id); if(!ch) return;
+  const max = DB.config.systems.progression.ascension_tiers;
+  const cost = 200 + ch.ascension*200;
+  if(ch.ascension >= max){ toast("Max ascension"); return; }
+  if(DB.currencies.coins < cost){ toast("Need "+cost+" Coins."); return; }
+  DB.currencies.coins -= cost; ch.ascension += 1;
+  for(const k of ["STR","DEX","CON","INT","WIS","CHA"]) ch.stats[k]+=3;
+  saveDB(); render();
+}
+
+/* =========================
+   JSON Layout Engine
+   ========================= */
+function getByPath(obj, path){
+  if(!path) return undefined;
+  const parts = path.split("."); let cur=obj;
+  for(const p of parts){ if(cur==null) return undefined; cur = cur[p]; }
+  return cur;
+}
+function formatValue(expr){
+  if(typeof expr === "string" && expr.startsWith("bind:")) return expr; // handled elsewhere
+  return expr;
+}
+function setAttrs(el, style){
+  if(!style) return;
+  if(style.variant) el.classList.add(style.variant);
+  if(style.align==="center") el.classList.add("center");
+  if(style.mt===8 || style.mt==="8") el.classList.add("mt-8");
+  if(style.mt===12 || style.mt==="12") el.classList.add("mt-12");
+  if(style.mt===16 || style.mt==="16") el.classList.add("mt-16");
+  if(style.mt===24 || style.mt==="24") el.classList.add("mt-24");
+  if(style.mt===32 || style.mt==="32") el.classList.add("mt-32");
+  if(style.p==="md") el.style.padding="var(--sp-md)";
+  if(style.px==="lg") el.classList.add("px-lg");
+  if(style.radius==="xl") el.style.borderRadius="var(--r-xl)";
+  if(style.bg==="card") el.classList.add("card");
+  if(style.bg==="panel") el.classList.add("panel");
+  if(style.shadow==="card") el.style.boxShadow="var(--shadow-card)";
+  if(style.justify) el.style.justifyContent = style.justify;
+  if(style.gap) el.classList.add("sp-"+style.gap);
+}
+function gradientText(from,to){ return `background: linear-gradient(90deg, ${from}, ${to}); -webkit-background-clip:text; background-clip:text; color:transparent;` }
+
+function makeNode(def, ctx){
+  const t = def.type;
+  if(t==="text"){
+    const d = document.createElement("div");
+    d.className = "text "+(def.style?.variant||"");
+    d.textContent = def.text || "";
+    setAttrs(d, def.style||{});
+    return d;
+  }
+  if(t==="vstack"||t==="hstack"||t==="wrap"){
+    const d = document.createElement("div");
+    d.className = t + " " + (def.style?.gap ? ("sp-"+def.style.gap) : "");
+    setAttrs(d, def.style||{});
+    (def.children||[]).forEach(c=> d.appendChild(makeNode(c, ctx)));
+    return d;
+  }
+  if(t==="grid"){
+    const d=document.createElement("div"); d.className="grid"; d.dataset.cols = def.cols||3; setAttrs(d, def.style||{});
+    const items = resolveBinding(def.bind, ctx) || def.children || [];
+    if(items && def.item){
+      items.forEach(it=> d.appendChild(makeItem(def.item, it, ctx)));
+    }else{
+      (def.children||[]).forEach(c=> d.appendChild(makeNode(c, ctx)));
+    }
+    return d;
+  }
+  if(t==="card"){
+    const d=document.createElement("div"); d.className="card"; setAttrs(d, def.style||{});
+    (def.children||[]).forEach(c=> d.appendChild(makeNode(c, ctx)));
+    return d;
+  }
+  if(t==="button"){
+    const b=document.createElement("button"); b.className="btn"; b.textContent = def.text||"Button"; setAttrs(b, def.style||{});
+    if(def.variant==="primary") b.classList.add("primary");
+    if(def.action) attachAction(b, def.action, ctx);
+    return b;
+  }
+  if(t==="badge"){
+    const d=document.createElement("span"); d.className="badge";
+    const icon = document.createElement("i"); icon.className="icon "+(def.icon||""); d.appendChild(icon);
+    const val = resolveBinding(def.bind, ctx);
+    d.appendChild(document.createTextNode(" "+ (val??"0")));
+    return d;
+  }
+  if(t==="chip"){
+    const c=document.createElement("span"); c.className="chip";
+    const text = def.bind && typeof def.bind!=="string" ? String(def.bind) : (def.text||"");
+    c.textContent = text || resolveBinding(def.bind, ctx) || "";
+    // Rarity color gradient if available
+    if(def.style?.gradient && Array.isArray(def.style.gradient)){
+      c.style = gradientText(def.style.gradient[0], def.style.gradient[1]);
+    }
+    if(def.onToggle){
+      c.onclick = ()=> { handleAction(def.onToggle.replace("ACTION:",""), {item:def}); };
+    }
+    return c;
+  }
+  if(t==="input"){
+    const i=document.createElement("input"); i.className="input"; i.placeholder = def.placeholder||"";
+    i.value = resolveBinding(def.bind, ctx) || "";
+    i.oninput = ()=>{ setBinding(def.bind, i.value); };
+    return i;
+  }
+  if(t==="select"){
+    const s=document.createElement("select"); s.className="select";
+    const opts = resolveOptions(def.options, ctx);
+    if(opts) opts.forEach(o=>{ const op=document.createElement("option"); op.value=o; op.textContent=o; s.appendChild(op); });
+    const v = resolveBinding(def.bind, ctx); if(v!=null) s.value=v;
+    s.onchange = ()=> setBinding(def.bind, s.value);
+    return s;
+  }
+  if(t==="slider"){
+    const sl=document.createElement("input"); sl.type="range"; sl.min=def.min||0; sl.max=def.max||100; sl.step=def.step||1; sl.className="slider";
+    sl.value = resolveBinding(def.bind, ctx) || 0;
+    sl.oninput = ()=>{ setBinding(def.bind, Number(sl.value)); if(def.onChange) handleAction(def.onChange.replace("ACTION:","")); };
+    return sl;
+  }
+  if(t==="image"){
+    const im=document.createElement("img"); im.className="img";
+    im.src = resolveBinding(def.bind, ctx) || def.src || "";
+    return im;
+  }
+  if(t==="list"){
+    const d=document.createElement("div");
+    const arr = resolveBinding(def.bind, ctx) || [];
+    arr.forEach(item=>{
+      d.appendChild(makeItem(def.item, item, ctx));
+    });
+    return d;
+  }
+  if(t==="progress"){
+    const wrap=document.createElement("div"); wrap.className="progress";
+    const span=document.createElement("span");
+    const max = def.max||100;
+    const val = resolveBinding(def.bind, ctx) || 0;
+    span.style.width = Math.min(100, Math.max(0, (val/max)*100))+"%";
+    wrap.appendChild(span);
+    return wrap;
+  }
+  if(t==="table"){
+    const tbl=document.createElement("table"); tbl.style.width="100%"; tbl.style.fontSize="12px";
+    const tbody=document.createElement("tbody");
+    (def.rows||[]).forEach(r=>{
+      const tr=document.createElement("tr");
+      const th=document.createElement("td"); th.textContent=r[0]; th.style.opacity=".8";
+      const td=document.createElement("td");
+      const bind = r[1]?.replace?.("bind:","");
+      td.textContent = bind ? String(getByPath(ctx, bind)) : "";
+      tr.appendChild(th); tr.appendChild(td); tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody); return tbl;
+  }
+  return document.createTextNode("");
+}
+function makeItem(tpl, item, ctx){
+  const local = Object.assign({}, ctx, {item});
+  if(tpl.type==="hstack"||tpl.type==="vstack"||tpl.type==="wrap"){
+    const d=document.createElement("div"); d.className=tpl.type; setAttrs(d, tpl.style||{});
+    (tpl.children||[]).forEach(c=> d.appendChild(makeNode(bindInItem(c,item), local)));
+    return d;
+  }
+  if(tpl.type==="card"){
+    const d=document.createElement("div"); d.className="card"; setAttrs(d, tpl.style||{});
+    (tpl.children||[]).forEach(c=> d.appendChild(makeNode(bindInItem(c,item), local)));
+    if(tpl.onTap) d.onclick = ()=> handleAction(tpl.onTap, {item});
+    return d;
+  }
+  if(tpl.type==="chip"){
+    const c=document.createElement("span"); c.className="chip";
+    c.textContent = item.rank || item || "";
+    if(item.color) c.style = gradientText(item.color[0], item.color[1]);
+    return c;
+  }
+  if(tpl.type==="image"){
+    const im=document.createElement("img"); im.className="img"; im.src=item.image_url; return im;
+  }
+  if(tpl.type==="text"){
+    const d=document.createElement("div"); d.className="text "+(tpl.style?.variant||""); d.textContent=item.name||String(item);
+    return d;
+  }
+  return document.createTextNode("");
+}
+function bindInItem(node, item){
+  const n = JSON.parse(JSON.stringify(node));
+  if(n.bind==="item.image_url"){ n.bind = item.image_url; }
+  if(n.bind==="item.name"){ n.text = item.name; delete n.bind; }
+  if(n.bind==="item.rank"){ n.text = item.rank; delete n.bind; }
+  if(n.bind==="format.percent(item.drop_rate)"){ n.text = (item.drop_rate*100).toFixed(3)+"%"; delete n.bind; }
+  return n;
+}
+function resolveOptions(optSpec, ctx){
+  if(!optSpec) return null;
+  if(typeof optSpec === "string" && optSpec.includes("[*].rank")){
+    return DB.config.systems.gacha.rarities.map(r=>r.rank);
+  }
+  if(typeof optSpec === "string" && optSpec.includes("database.worlds")){
+    return DB.config.systems.world_origin?.examples || [];
+  }
+  return null;
+}
+function resolveBinding(bind, ctx){
+  if(!bind) return null;
+  if(typeof bind === "string"){
+    if(bind.startsWith("session.summon.results")) return DB.session.summon.results;
+    if(bind.startsWith("systems.gacha.rarities")) return DB.config.systems.gacha.rarities;
+    if(bind.startsWith("player.currencies.coins")) return DB.currencies.coins;
+    if(bind.startsWith("player.currencies.gems")) return DB.currencies.gems;
+    if(bind.startsWith("player.pity.progress")) return DB.currencies.pity||0;
+    return getByPath(DB, bind.replace(/^player\./,""));
+  }
+  return bind;
+}
+function setBinding(bind, value){
+  if(typeof bind !== "string") return;
+  const parts = bind.split("."); let cur=DB;
+  for(let i=0;i<parts.length-1;i++){ cur = cur[parts[i]]; if(cur==null) return; }
+  cur[parts[parts.length-1]] = value;
+  saveDB();
+}
+
+function attachAction(el, act, ctx){
+  el.onclick = ()=> handleAction(act, ctx);
+}
+function handleAction(act, ctx={}){
+  if(!act) return;
+  if(act.startsWith("NAVIGATE:")){ const to = act.split(":")[1]; navigate(to); return; }
+  if(act.startsWith("FUNC:")){
+    const fn = act.replace("FUNC:","");
+    if(fn==="SUMMON_SINGLE") return doSingle();
+    if(fn==="SUMMON_TEN") return doTen();
+    if(fn.startsWith("LEVEL_UP")) return;
+    return;
+  }
+  if(act.startsWith("ACTION:")){
+    const name = act.replace("ACTION:","");
+    if(name==="UPDATE_GEM_BOOST_MULTIPLIER"){
+      const g = DB.session.summon.gems_spent||0;
+      DB.session.summon.multiplier = gemToMult(g);
+      saveDB(); toast("Gem boost x"+DB.session.summon.multiplier.toFixed(2));
+      return;
+    }
+    if(name.startsWith("TOGGLE_RARITY_FILTER")){
+      const rank = act.match(/\((.+)\)/)?.[1] || ctx?.item?.rank || "";
+      const arr = DB.session.search.rarities;
+      const i = arr.indexOf(rank); if(i>=0) arr.splice(i,1); else arr.push(rank);
+      saveDB(); render(); return;
+    }
+  }
+  if(act.startsWith("OPEN_POPUP:")){
+    const id = ctx?.item?.id || act.match(/\((.+)\)/)?.[1];
+    openCharacter(id); return;
+  }
+}
+
+/* =========================
+   Screen Renderer
+   ========================= */
+const APP = $("#app");
+let CURRENT = "main_menu";
+function navigate(screen){
+  CURRENT = screen.replace(/.*:/,""); // handle NAVIGATE:screen
+  render();
+}
+
+function render(){
+  APP.innerHTML="";
+  // Header currency row (global)
+  const topRow = document.createElement("div");
+  topRow.className="hstack sp-lg";
+  const coins = document.createElement("span"); coins.className="badge"; coins.innerHTML='<i class="icon coin"></i> '+DB.currencies.coins;
+  const gems = document.createElement("span"); gems.className="badge"; gems.innerHTML='<i class="icon gem"></i> '+DB.currencies.gems;
+  topRow.appendChild(coins); topRow.appendChild(gems);
+  APP.appendChild(topRow);
+
+  const screens = LAYOUT.ui_layout.screens;
+  const def = screens[CURRENT] || screens["main_menu"];
+  const container = document.createElement("section"); container.className="screen active";
+  (def.layout||[]).forEach(node=> container.appendChild(makeNode(node, DB)));
+  APP.appendChild(container);
+
+  // Responsive tweak for inventory grid
+  if(CURRENT==="character_inventory"){
+    const grid = container.querySelector(".grid");
+    if(grid){
+      const w = window.innerWidth;
+      if(w<=420) grid.dataset.cols="2";
+      else if(w>=800) grid.dataset.cols="5";
+      else grid.dataset.cols="3";
+    }
+  }
+
+  // Wire known buttons in main menu vstack by id (fallback actions)
+  if(CURRENT==="main_menu"){
+    const setNav = (id, to)=>{
+      const btn = Array.from(container.querySelectorAll(".btn")).find(b=>b.textContent===id);
+      if(btn) btn.onclick = ()=> navigate(to);
+    };
+    setNav("Summon","summon_screen");
+    setNav("Characters","character_inventory");
+    setNav("Database","database_view");
+    setNav("Settings","settings"); // settings screen not implemented; ignore
+  }
+
+  // Summon screen: results grid tile interactions
+  if(CURRENT==="summon_screen"){
+    // attach actions for buttons if not bound via action strings
+    const btns = container.querySelectorAll(".btn");
+    btns.forEach(b=>{
+      if(b.textContent.includes("Single")) b.onclick = doSingle;
+      if(b.textContent.includes("Ten Pull")) b.onclick = doTen;
+    });
+    // show pity number text if present
+  }
+
+  // Inventory screen: build grid from filtered results
+  if(CURRENT==="character_inventory"){
+    const qInput = container.querySelector("input.input");
+    if(qInput){
+      qInput.value = DB.session.search.query||"";
+      qInput.oninput = ()=>{ DB.session.search.query = qInput.value; saveDB(); render(); };
+    }
+    // Rarity chips
+    const chipsWrap = container.querySelectorAll(".chip");
+    const selected = new Set(DB.session.search.rarities);
+    chipsWrap.forEach(ch=>{
+      const txt = ch.textContent.trim();
+      ch.dataset.active = selected.has(txt);
+      ch.onclick = ()=>{
+        if(selected.has(txt)) selected.delete(txt); else selected.add(txt);
+        DB.session.search.rarities = Array.from(selected); saveDB(); render();
+      };
+    });
+    // Grid
+    const grid = container.querySelector(".grid");
+    if(grid){
+      grid.innerHTML="";
+      const items = queryCharacters(DB.session.search);
+      items.forEach(item=>{
+        const card=document.createElement("div"); card.className="card";
+        const im=document.createElement("img"); im.className="img"; im.src=item.image_url;
+        const row=document.createElement("div"); row.className="row mt-8";
+        const name=document.createElement("div"); name.className="body"; name.textContent=item.name;
+        const chip=document.createElement("span"); chip.className="chip"; chip.textContent=item.rarity;
+        row.appendChild(name); row.appendChild(chip);
+        card.appendChild(im); card.appendChild(row);
+        card.onclick = ()=> openCharacter(item.id);
+        grid.appendChild(card);
+      });
+    }
+  }
+
+  // Database view
+  if(CURRENT==="database_view"){
+    const tableHost = container.querySelector("#tableHost") || container.querySelector("table");
+    if(tableHost){
+      // Build simple table
+      const tbl=document.createElement("table"); tbl.style.width="100%"; tbl.style.fontSize="12px";
+      const thead=document.createElement("thead"); const trh=document.createElement("tr");
+      ["Name","Class","Rarity","World","Tags","Lvl","Asc","Actions"].forEach(h=>{ const th=document.createElement("th"); th.textContent=h; th.style.textAlign="left"; th.style.padding="6px"; trh.appendChild(th); });
+      thead.appendChild(trh); tbl.appendChild(thead);
+      const tb=document.createElement("tbody");
+      queryCharacters(DB.session.search).forEach(row=>{
+        const tr=document.createElement("tr");
+        const tds=[row.name,row.class,row.rarity,row.world_origin,(row.tags||[]).join(", "), String(row.level), String(row.ascension)];
+        tds.forEach(v=>{ const td=document.createElement("td"); td.textContent=v; td.style.padding="6px"; td.style.borderTop="1px solid rgba(255,255,255,0.1)"; tr.appendChild(td); });
+        const actions=document.createElement("td"); actions.style.padding="6px";
+        const b1=document.createElement("button"); b1.className="btn"; b1.textContent="View"; b1.onclick=()=> openCharacter(row.id);
+        const b2=document.createElement("button"); b2.className="btn"; b2.textContent="Edit"; b2.onclick=()=> openEditor(row.id);
+        const b3=document.createElement("button"); b3.className="btn"; b3.textContent="Delete"; b3.onclick=()=>{ if(confirm("Delete?")){ DB.characters = DB.characters.filter(c=>c.id!==row.id); saveDB(); render(); } };
+        actions.appendChild(b1); actions.appendChild(b2); actions.appendChild(b3);
+        tr.appendChild(actions); tb.appendChild(tr);
+      });
+      tbl.appendChild(tb);
+      // replace
+      const wrap=document.createElement("div"); wrap.className="panel mt-12"; wrap.appendChild(tbl);
+      container.appendChild(wrap);
+    }
+  }
+}
+
+function queryCharacters(filters){
+  const q=(filters.query||"").toLowerCase();
+  const rarSet = new Set(filters.rarities||[]);
+  return DB.characters.filter(ch=>{
+    const hay=[ch.name,ch.class,ch.world_origin,(ch.tags||[]).join(" ")].join(" ").toLowerCase();
+    const okQ = !q || q.split(/\s+/).every(tok=> hay.includes(tok));
+    const okR = rarSet.size===0 || rarSet.has(ch.rarity);
+    return okQ && okR;
+  }).sort((a,b)=> rarityOrder().indexOf(a.rarity)-rarityOrder().indexOf(b.rarity) || b.level-a.level);
+}
+
+/* =========================
+   Character Modal + Editor
+   ========================= */
+const dlg = $("#charDialog"); const edDlg = $("#editDialog");
+$("#btnCloseDialog").onclick = ()=> dlg.close();
+$("#btnCloseEdit").onclick = ()=> edDlg.close();
+$("#btnCancelEdit").onclick = ()=> edDlg.close();
+
+function openCharacter(id){
+  const ch = DB.characters.find(c=>c.id===id); if(!ch) return;
+  dlg.showModal();
+  $("#charPortrait").src = ch.image_url;
+  $("#charName").textContent = ch.name + " • " + ch.rarity;
+  $("#charClass").textContent = ch.class;
+  $("#charOrigin").textContent = ch.world_origin;
+  const tagC = $("#charTags"); tagC.innerHTML="";
+  (ch.tags||[]).forEach(t=>{ const c=document.createElement("span"); c.className="chip"; c.textContent=t; c.onclick=()=>{ DB.session.search.query=t; dlg.close(); navigate("character_inventory"); }; tagC.appendChild(c); });
+  const st=$("#statsTable"); st.innerHTML="";
+  ["STR","DEX","CON","INT","WIS","CHA"].forEach(k=>{ const tr=document.createElement("tr"); const a=document.createElement("td"); const b=document.createElement("td"); a.textContent=k; b.textContent=ch.stats[k]; tr.appendChild(a); tr.appendChild(b); st.appendChild(tr); });
+  $("#ascBar").style.width = (ch.ascension/DB.config.systems.progression.ascension_tiers*100)+"%";
+  $("#btnLevelUp").onclick = ()=>{ levelUp(id); openCharacter(id); };
+  $("#btnAscend").onclick = ()=>{ ascend(id); openCharacter(id); };
+  $("#btnAddTag").onclick = ()=>{ const t=prompt("Enter new tag"); if(!t) return; ch.tags = Array.from(new Set([...(ch.tags||[]), t])); saveDB(); openCharacter(id); };
+  $("#btnOpenEditor").onclick = ()=> openEditor(id);
+}
+
+function openEditor(id){
+  const ch = DB.characters.find(c=>c.id===id); if(!ch) return;
+  edDlg.showModal();
+  $("#edName").value = ch.name;
+  $("#edImg").value = ch.image_url;
+  $("#edClass").value = ch.class;
+  $("#edOrigin").value = ch.world_origin;
+  const rSel=$("#edRarity"); rSel.innerHTML=""; DB.config.systems.gacha.rarities.forEach(r=>{ const op=document.createElement("option"); op.value=r.rank; op.textContent=r.rank; rSel.appendChild(op); });
+  rSel.value = ch.rarity;
+  $("#edTags").value = (ch.tags||[]).join(", ");
+  $("#edSTR").value = ch.stats.STR; $("#edDEX").value=ch.stats.DEX; $("#edCON").value=ch.stats.CON;
+  $("#edINT").value = ch.stats.INT; $("#edWIS").value=ch.stats.WIS; $("#edCHA").value=ch.stats.CHA;
+  $("#edLevel").value = ch.level; $("#edAsc").value = ch.ascension;
+  $("#btnSaveEdit").onclick = ()=>{
+    ch.name=$("#edName").value.trim()||ch.name;
+    ch.image_url=$("#edImg").value.trim()||ch.image_url;
+    ch.class=$("#edClass").value.trim()||ch.class;
+    ch.world_origin=$("#edOrigin").value.trim()||ch.world_origin;
+    ch.rarity=$("#edRarity").value;
+    ch.tags=$("#edTags").value.split(",").map(s=>s.trim()).filter(Boolean);
+    ch.stats.STR=Number($("#edSTR").value); ch.stats.DEX=Number($("#edDEX").value); ch.stats.CON=Number($("#edCON").value);
+    ch.stats.INT=Number($("#edINT").value); ch.stats.WIS=Number($("#edWIS").value); ch.stats.CHA=Number($("#edCHA").value);
+    ch.level=clamp(Number($("#edLevel").value),1,DB.config.systems.progression.level_cap);
+    ch.ascension=clamp(Number($("#edAsc").value),0,DB.config.systems.progression.ascension_tiers);
+    saveDB(); edDlg.close(); render(); toast("Character updated");
+  };
+}
+
+/* =========================
+   Boot
+   ========================= */
+function mountDesignSystem(){
+  const ds = LAYOUT.ui_layout.design_system;
+  const root = document.documentElement;
+  if(ds?.colors){
+    root.style.setProperty("--bg", ds.colors.bg||"#121212");
+    root.style.setProperty("--text", ds.colors.text||"#fff");
+    root.style.setProperty("--muted", ds.colors.muted||"rgba(255,255,255,0.7)");
+    root.style.setProperty("--accent", ds.colors.accent||"#00BFFF");
+    root.style.setProperty("--panel", ds.colors.panel||"rgba(255,255,255,0.06)");
+    root.style.setProperty("--card", ds.colors.card||"rgba(255,255,255,0.08)");
+  }
+  if(ds?.radius){
+    root.style.setProperty("--r-sm", ds.radius.sm+"px");
+    root.style.setProperty("--r-md", ds.radius.md+"px");
+    root.style.setProperty("--r-lg", ds.radius.lg+"px");
+    root.style.setProperty("--r-xl", ds.radius.xl+"px");
+  }
+  if(ds?.spacing){
+    root.style.setProperty("--sp-xs", ds.spacing.xs+"px");
+    root.style.setProperty("--sp-sm", ds.spacing.sm+"px");
+    root.style.setProperty("--sp-md", ds.spacing.md+"px");
+    root.style.setProperty("--sp-lg", ds.spacing.lg+"px");
+    root.style.setProperty("--sp-xl", ds.spacing.xl+"px");
+  }
+  if(ds?.safe_area){
+    root.style.setProperty("--safe-top", ds.safe_area.top+"px");
+    root.style.setProperty("--safe-bottom", ds.safe_area.bottom+"px");
+    root.style.setProperty("--safe-left", ds.safe_area.left+"px");
+    root.style.setProperty("--safe-right", ds.safe_area.right+"px");
+  }
+}
+mountDesignSystem();
+render();
+
+</script>
+</body>
+</html>
